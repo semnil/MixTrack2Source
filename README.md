@@ -1,59 +1,73 @@
-# OBS Plugin Template
+# Mix Track to Source
 
-## Introduction
+```mermaid
+flowchart TB
+    subgraph OBS Mix tracks
+        T1["Any Track
+        from 1 to 6"]
+        T2@{ shape: procs, label: "Output Tracks" }
+    end
 
-The plugin template is meant to be used as a starting point for OBS Studio plugin development. It includes:
+    subgraph Mix Track to Source Plugin
+        subgraph P1["mt2s_callback()"]
+            P2["obs_source_output_audio()"]
+        end
 
-* Boilerplate plugin source code
-* A CMake project file
-* GitHub Actions workflows and repository actions
+        subgraph OBS Audio Mixer
+            S["Source"]
+        end
+        P2-->S
+    end
+    T1-->P1
+    S-->T2
+    S-.-x|"To avoid loopback,
+    the input track
+    cannot be output"|T1
+```
 
-## Supported Build Environments
+- Select an input mix track to create an audio source
+- The audio source uses the selected mix track as input and allows various filters to be applied
+- Allows selection of mix tracks as output, excluding the mix track selected as input
+- Buffering causes a minimum delay of 1024 samples (21 ms at 48 kHz)
+  - If even greater delay is unacceptable, enable **Low Latency Buffering Mode** in OBS Settings > Audio > Advanced
 
-| Platform  | Tool   |
-|-----------|--------|
-| Windows   | Visual Studio 17 2022 |
-| macOS     | XCode 16.0 |
-| Windows, macOS  | CMake 3.30.5 |
-| Ubuntu 24.04 | CMake 3.28.3 |
-| Ubuntu 24.04 | `ninja-build` |
-| Ubuntu 24.04 | `pkg-config`
-| Ubuntu 24.04 | `build-essential` |
+## Install
 
-## Quick Start
+Please download the archive file from the [Releases](https://github.com/semnil/MixTrack2Source/releases) page.
 
-An absolute bare-bones [Quick Start Guide](https://github.com/obsproject/obs-plugintemplate/wiki/Quick-Start-Guide) is available in the wiki.
+### Windows
 
-## Documentation
+After extracting the archive file, place the `mix-track-to-source` folder in the following location:
 
-All documentation can be found in the [Plugin Template Wiki](https://github.com/obsproject/obs-plugintemplate/wiki).
+```
+C:\ProgramData\obs-studio\plugins
+```
 
-Suggested reading to get up and running:
 
-* [Getting started](https://github.com/obsproject/obs-plugintemplate/wiki/Getting-Started)
-* [Build system requirements](https://github.com/obsproject/obs-plugintemplate/wiki/Build-System-Requirements)
-* [Build system options](https://github.com/obsproject/obs-plugintemplate/wiki/CMake-Build-System-Options)
+### macOS
 
-## GitHub Actions & CI
+Run the `mix-track-to-source-<version>-macos-universal.pkg` file to install it.
 
-Default GitHub Actions workflows are available for the following repository actions:
 
-* `push`: Run for commits or tags pushed to `master` or `main` branches.
-* `pr-pull`: Run when a Pull Request has been pushed or synchronized.
-* `dispatch`: Run when triggered by the workflow dispatch in GitHub's user interface.
-* `build-project`: Builds the actual project and is triggered by other workflows.
-* `check-format`: Checks CMake and plugin source code formatting and is triggered by other workflows.
+### Ubuntu
 
-The workflows make use of GitHub repository actions (contained in `.github/actions`) and build scripts (contained in `.github/scripts`) which are not needed for local development, but might need to be adjusted if additional/different steps are required to build the plugin.
+Run the following command:
 
-### Retrieving build artifacts
+```
+sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
+```
 
-Successful builds on GitHub Actions will produce build artifacts that can be downloaded for testing. These artifacts are commonly simple archives and will not contain package installers or installation programs.
 
-### Building a Release
+## Usage
 
-To create a release, an appropriately named tag needs to be pushed to the `main`/`master` branch using semantic versioning (e.g., `12.3.4`, `23.4.5-beta2`). A draft release will be created on the associated repository with generated installer packages or installation programs attached as release artifacts.
+- `Add Source` > `Mix Track` to add an audio source
+- Select a mix track to use for input from `Track 1` to `Track 6`
+- Select outputs for added audio track in the Advanced Audio Properties window
+  - Cannot select the same track for both input and output
+  - Deselect the output from other sources as needed
 
-## Signing and Notarizing on macOS
 
-Basic concepts of codesigning and notarization on macOS are explained in the correspodning [Wiki article](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS) which has a specific section for the [GitHub Actions setup](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS#setting-up-code-signing-for-github-actions).
+## Information for development
+
+Please refer to the template repository information.  
+https://github.com/obsproject/obs-plugintemplate
