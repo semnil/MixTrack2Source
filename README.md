@@ -66,6 +66,20 @@ sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
   - Cannot select the same track for both input and output
   - Deselect the output from other sources as needed
 
+### Usage example
+
+After applying a limiter to the input on Track 1, the settings for outputting the audio to Track 6 for distribution are as follows:
+
+![](img/Properties_for_Mix_Track.png)
+![](img/Filters_for_Mix_Track.png)
+![](img/Advanced_Audio_Properties.png)
+![](img/Settings_Output.png)
+
+- When adding an audio source, set the input to Track 1
+- Add a limiter to the filter of that audio source
+- Enable the output of Track 6 for that audio source and disable the output to Track 6 for other audio sources
+- Select Track 6 in Settings > Output > Streaming > Streaming Settings > Audio Track
+
 
 ## Information for development
 
