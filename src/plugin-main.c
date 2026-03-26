@@ -19,26 +19,49 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 #include <plugin-support.h>
 
+#ifndef _MSC_VER
+#include <stdatomic.h>
+#else
+// MSVC does not support stdatomic.h in C mode under the OBS build config
+// Use the `volatile` keyword to prevent the compiler from reordering instructions
+typedef volatile size_t atomic_size_t;
+static inline void _mt2s_atomic_init(volatile size_t *p, size_t v)
+{
+	*p = v;
+}
+static inline size_t _mt2s_atomic_load(volatile size_t *p)
+{
+	return *p;
+}
+static inline void _mt2s_atomic_store(volatile size_t *p, size_t v)
+{
+	*p = v;
+}
+#define atomic_init(p, v)  _mt2s_atomic_init(p, v)
+#define atomic_load(p)     _mt2s_atomic_load(p)
+#define atomic_store(p, v) _mt2s_atomic_store(p, v)
+#endif
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 typedef struct {
 	obs_source_t *source;
-	size_t mix_idx;
+	atomic_size_t mix_idx; // audio thread (read) / UI thread (read-write)
 } mt2s_context_t;
 
 void mt2s_avoid_loopback(mt2s_context_t *context, size_t mix_idx)
 {
 	// override output settings to avoid loopback
 	size_t mixers = obs_source_get_audio_mixers(context->source);
-	if (mixers != (mixers & ~(1 << mix_idx)))
-		obs_source_set_audio_mixers(context->source, mixers & ~(1 << mix_idx));
+	if (mixers != (mixers & ~((size_t)1 << mix_idx)))
+		obs_source_set_audio_mixers(context->source, mixers & ~((size_t)1 << mix_idx));
 }
 
 static void mt2s_callback(void *param, size_t mix_idx, struct audio_data *data)
 {
 	mt2s_context_t *context = (mt2s_context_t *)param;
-	if (!context || context->mix_idx != mix_idx || !data || !data->frames)
+	if (!context || atomic_load(&context->mix_idx) != mix_idx || !data || !data->frames)
 		return;
 
 	mt2s_avoid_loopback(context, mix_idx);
@@ -62,30 +85,38 @@ static void mt2s_callback(void *param, size_t mix_idx, struct audio_data *data)
 
 void mt2s_disconnect(mt2s_context_t *context)
 {
-	if (!context || context->mix_idx >= MAX_AUDIO_MIXES)
+	if (!context)
+		return;
+
+	size_t idx = atomic_load(&context->mix_idx);
+	if (idx >= MAX_AUDIO_MIXES)
 		return;
 
 	// disconnect the connected mix track
-	audio_output_disconnect(obs_get_audio(), context->mix_idx, mt2s_callback, context);
-	obs_log(LOG_INFO, "audio_output_disconnect(%u)", context->mix_idx);
+	audio_output_disconnect(obs_get_audio(), idx, mt2s_callback, context);
+	obs_log(LOG_INFO, "audio_output_disconnect(%zu)", idx);
 	// initialize the connected mix track id
-	context->mix_idx = SIZE_MAX;
+	atomic_store(&context->mix_idx, SIZE_MAX);
 }
 
 void mt2s_connect(mt2s_context_t *context, size_t mix_idx)
 {
+	if (!context || mix_idx >= MAX_AUDIO_MIXES)
+		return;
+
 	audio_t *audio = obs_get_audio();
 
-	if (context->mix_idx != mix_idx) {
-		// disconnect the connected mix track
-		mt2s_disconnect(context);
-	}
+	if (atomic_load(&context->mix_idx) == mix_idx)
+		return;
+
+	// disconnect the connected mix track
+	mt2s_disconnect(context);
 
 	// connect the mix track
 	if (audio_output_connect(audio, mix_idx, NULL, mt2s_callback, context)) {
 		// save the connected mix track id
-		context->mix_idx = mix_idx;
-		obs_log(LOG_INFO, "audio_output_connect(%u)", context->mix_idx);
+		atomic_store(&context->mix_idx, mix_idx);
+		obs_log(LOG_INFO, "audio_output_connect(%zu)", mix_idx);
 	}
 }
 
@@ -96,7 +127,7 @@ void *mt2s_create(obs_data_t *settings, obs_source_t *source)
 
 	if (context) {
 		context->source = source;
-		context->mix_idx = SIZE_MAX;
+		atomic_init(&context->mix_idx, SIZE_MAX);
 
 		// deselect all outputs
 		obs_source_set_audio_mixers(context->source, 0);
