@@ -17,8 +17,30 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include <obs-module.h>
-#include <stdatomic.h>
 #include <plugin-support.h>
+
+#ifndef _MSC_VER
+#include <stdatomic.h>
+#else
+// MSVC does not support stdatomic.h in C mode under the OBS build config
+// Use the `volatile` keyword to prevent the compiler from reordering instructions
+typedef volatile size_t atomic_size_t;
+static inline void _mt2s_atomic_init(volatile size_t *p, size_t v)
+{
+	*p = v;
+}
+static inline size_t _mt2s_atomic_load(volatile size_t *p)
+{
+	return *p;
+}
+static inline void _mt2s_atomic_store(volatile size_t *p, size_t v)
+{
+	*p = v;
+}
+#define atomic_init(p, v)  _mt2s_atomic_init(p, v)
+#define atomic_load(p)     _mt2s_atomic_load(p)
+#define atomic_store(p, v) _mt2s_atomic_store(p, v)
+#endif
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
