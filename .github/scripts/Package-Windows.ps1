@@ -67,6 +67,25 @@ function Package {
     }
     Compress-Archive -Force @CompressArgs
     Log-Group
+
+    Log-Group "Creating InnoSetup installer..."
+    $IsccFile = "${ProjectRoot}/build_${Target}/installer.iss"
+
+    if ( ! ( Test-Path -Path $IsccFile ) ) {
+        throw "InnoSetup installer script not found at '${IsccFile}'. Run the build step first."
+    }
+
+    Push-Location -Stack BuildTemp
+    Ensure-Location -Path "${ProjectRoot}/release"
+
+    Copy-Item -Path ${Configuration} -Destination Package -Recurse
+
+    Invoke-External iscc ${IsccFile} /O"${ProjectRoot}/release" /F"${OutputName}-Installer"
+
+    Remove-Item -Path Package -Recurse
+
+    Pop-Location -Stack BuildTemp
+    Log-Group
 }
 
 Package

@@ -37,7 +37,9 @@ Please download the archive file from the [Releases](https://github.com/semnil/M
 
 ### Windows
 
-After extracting the archive file, place the `mix-track-to-source` folder in the following location:
+Run the `mix-track-to-source-<version>-windows-x64-Installer.exe` file to install it.
+
+Alternatively, extract the archive file and place the `mix-track-to-source` folder in the following location:
 
 ```
 C:\ProgramData\obs-studio\plugins
