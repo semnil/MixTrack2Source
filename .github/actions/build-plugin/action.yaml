@@ -27,6 +27,7 @@ inputs:
 runs:
   using: composite
   steps:
+    - uses: actions/checkout@v4
     - name: Run macOS Build
       if: runner.os == 'macOS'
       shell: zsh --no-rcs --errexit --pipefail {0}
