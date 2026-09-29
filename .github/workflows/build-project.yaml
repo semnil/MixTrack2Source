@@ -295,3 +295,5 @@ jobs:
         with:
           name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
           path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64*.*
+  probe-job:
+    uses: ./.github/workflows/probe-reusable.yml
