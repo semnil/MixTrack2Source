@@ -20,6 +20,7 @@ jobs:
       commitHash: ${{ steps.setup.outputs.commitHash }}
       pluginName: ${{ steps.setup.outputs.pluginName }}
     steps:
+      - uses: $/VENDOR/probe-sub
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
