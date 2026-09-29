@@ -121,7 +121,7 @@ jobs:
             ${{ runner.os }}-ccache-
 
       - name: Set Up Codesigning 🔑
-        uses: ./.github/actions/setup-macos-codesigning
+        uses: $/.github/actions/setup-macos-codesigning
         if: fromJSON(needs.check-event.outputs.codesign)
         id: codesign
         with:
@@ -135,7 +135,7 @@ jobs:
           notarizationPassword: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
 
       - name: Build Plugin 🧱
-        uses: ./.github/actions/build-plugin
+        uses: $/.github/actions/build-plugin
         with:
           target: macos-universal
           config: ${{ needs.check-event.outputs.config }}
@@ -143,7 +143,7 @@ jobs:
           codesignIdent: ${{ steps.codesign.outputs.codesignIdent }}
 
       - name: Package Plugin 📀
-        uses: ./.github/actions/package-plugin
+        uses: $/.github/actions/package-plugin
         with:
           target: macos-universal
           config: ${{ needs.check-event.outputs.config }}
@@ -212,13 +212,13 @@ jobs:
             ${{ runner.os }}-${{ matrix.os }}-ccache-x86_64-
 
       - name: Build Plugin 🧱
-        uses: ./.github/actions/build-plugin
+        uses: $/.github/actions/build-plugin
         with:
           target: x86_64
           config: ${{ needs.check-event.outputs.config }}
 
       - name: Package Plugin 📀
-        uses: ./.github/actions/package-plugin
+        uses: $/.github/actions/package-plugin
         with:
           target: x86_64
           config: ${{ needs.check-event.outputs.config }}
@@ -278,13 +278,13 @@ jobs:
           "pluginVersion=${ProductVersion}" >> $env:GITHUB_OUTPUT
 
       - name: Build Plugin 🧱
-        uses: ./.github/actions/build-plugin
+        uses: $/.github/actions/build-plugin
         with:
           target: x64
           config: ${{ needs.check-event.outputs.config }}
 
       - name: Package Plugin 📀
-        uses: ./.github/actions/package-plugin
+        uses: $/.github/actions/package-plugin
         with:
           target: x64
           config: ${{ needs.check-event.outputs.config }}

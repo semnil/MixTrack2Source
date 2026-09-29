@@ -10,7 +10,7 @@ jobs:
           fetch-depth: 0
       - name: clang-format check 🐉
         id: clang-format
-        uses: ./.github/actions/run-clang-format
+        uses: $/.github/actions/run-clang-format
         with:
           failCondition: error
 
@@ -22,6 +22,6 @@ jobs:
           fetch-depth: 0
       - name: gersemi Check 🎛️
         id: gersemi
-        uses: ./.github/actions/run-gersemi
+        uses: $/.github/actions/run-gersemi
         with:
           failCondition: error
