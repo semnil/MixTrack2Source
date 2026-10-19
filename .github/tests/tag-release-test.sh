@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs the shell of the release path from this commit against fixtures and asserts what it does:
-# .github/scripts/release-tag-shape itself and the Check Release Tag step of push.yaml.
+# .github/scripts/release-tag-shape itself, the Check Release Tag step of push.yaml, and the Check Event Data step of
+# build-project.yaml.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -110,6 +111,47 @@ check_case "missing shape check" 1.0.3 missing fail
 check_case "shape check that exits 3" 1.0.3 'exit 3' fail
 check_case "shape check that answers neither true nor false" 1.0.3 'echo yes' fail
 check_case "shape check that answers and exits 1" 1.0.3 'echo true; exit 1' fail
+
+# --- build-project.yaml, check-event, Check Event Data ---
+
+event_check=$(step_script build-project.yaml check-event "Check Event Data ☑️")
+# The step's ${{ }} expressions are matched as literal text and replaced with the value GitHub would substitute.
+# shellcheck disable=SC2016
+event_check=${event_check//'${{ github.event.number }}'/1}
+# shellcheck disable=SC2016
+if [[ "$event_check" == *'${{'* ]]; then
+  echo "the Check Event Data step holds an expression this test does not substitute" >&2
+  exit 1
+fi
+mkdir -p "$work/no-gh"
+printf '#!/usr/bin/env bash\necho "unexpected gh call: $*" >&2\nexit 2\n' > "$work/no-gh/gh"
+chmod +x "$work/no-gh/gh"
+
+# event_outputs <event> <ref type> <ref name>: prints the build settings the step outputs, on one line.
+event_outputs() {
+  local dir out status
+  dir=$(mktemp -d "$work/event.XXXXXX")
+  cp "$root/buildspec.json" "$dir/"
+  : > "$dir/output"
+  out=$(cd "$dir" && PATH="$work/no-gh:$PATH" GITHUB_EVENT_NAME="$1" GITHUB_REF_TYPE="$2" GITHUB_REF_NAME="$3" \
+    GITHUB_SHA=0123456789abcdef0123456789abcdef01234567 GITHUB_OUTPUT="$dir/output" GH_TOKEN=unused \
+    bash -e -o pipefail -c "$event_check" 2>&1) && status=0 || status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "exit ${status}: ${out}"
+    return
+  fi
+  awk -F= '$1 == "codesign" || $1 == "notarize" || $1 == "package" || $1 == "config" { printf "%s ", $0 }' "$dir/output"
+}
+expect "check-event: push of a release tag is a packaged, notarized Release build" \
+  "codesign=true notarize=true package=true config=Release " "$(event_outputs push tag 1.0.3)"
+expect "check-event: workflow_dispatch on a release tag builds what a push of it builds" \
+  "$(event_outputs push tag 1.0.3)" "$(event_outputs workflow_dispatch tag 1.0.3)"
+expect "check-event: workflow_dispatch on a prerelease tag builds what a push of it builds" \
+  "$(event_outputs push tag 1.0.3-rc1)" "$(event_outputs workflow_dispatch tag 1.0.3-rc1)"
+expect "check-event: workflow_dispatch on a branch is an unpackaged RelWithDebInfo build" \
+  "codesign=true notarize=false package=false config=RelWithDebInfo " "$(event_outputs workflow_dispatch branch master)"
+expect "check-event: push of master is a packaged RelWithDebInfo build" \
+  "codesign=true notarize=false package=true config=RelWithDebInfo " "$(event_outputs push branch master)"
 
 echo "${count} cases, ${failures} failed"
 if [ "$failures" -ne 0 ]; then

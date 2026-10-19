@@ -1,12 +1,13 @@
 name: Tag release test
 
-# Runs .github/tests/tag-release-test.sh, which executes release-tag-shape and the create-release check of push.yaml
-# from this commit against fixtures, and asserts what each one does.
+# Runs .github/tests/tag-release-test.sh, which executes release-tag-shape, the create-release check of push.yaml and
+# the event check of build-project.yaml from this commit against fixtures, and asserts what each one does.
 on:
   pull_request:
     paths:
       - .github/scripts/release-tag-shape
       - .github/tests/tag-release-test.sh
+      - .github/workflows/build-project.yaml
       - .github/workflows/push.yaml
       - .github/workflows/tag-release-test.yaml
   push:
@@ -16,6 +17,7 @@ on:
     paths:
       - .github/scripts/release-tag-shape
       - .github/tests/tag-release-test.sh
+      - .github/workflows/build-project.yaml
       - .github/workflows/push.yaml
       - .github/workflows/tag-release-test.yaml
   workflow_dispatch:

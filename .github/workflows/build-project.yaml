@@ -31,7 +31,13 @@ jobs:
           : Check Event Data ☑️
           if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
 
-          case "${GITHUB_EVENT_NAME}" in
+          event="${GITHUB_EVENT_NAME}"
+          # A workflow_dispatch run on a tag builds what a push of that tag builds.
+          if [[ "${event}" == 'workflow_dispatch' && "${GITHUB_REF_TYPE}" == 'tag' ]]; then
+            event=push
+          fi
+
+          case "${event}" in
             pull_request)
               config_data=('codesign:false' 'notarize:false' 'package:false' 'config:RelWithDebInfo')
               if gh pr view ${{ github.event.number }} --json labels \
