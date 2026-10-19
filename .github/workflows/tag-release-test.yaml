@@ -1,7 +1,8 @@
 name: Tag release test
 
-# Runs .github/tests/tag-release-test.sh, which executes release-tag-shape, the create-release check of push.yaml and
-# the event check of build-project.yaml from this commit against fixtures, and asserts what each one does.
+# Runs .github/tests/tag-release-test.sh, which executes the shell of the release path from this commit
+# (release-tag-shape, the create-release check of push.yaml, the event check of build-project.yaml and the tag step of
+# tag-release.yaml) against fixtures and fixture repositories, and asserts what each one does.
 on:
   pull_request:
     paths:
@@ -9,6 +10,7 @@ on:
       - .github/tests/tag-release-test.sh
       - .github/workflows/build-project.yaml
       - .github/workflows/push.yaml
+      - .github/workflows/tag-release.yaml
       - .github/workflows/tag-release-test.yaml
   push:
     branches:
@@ -19,6 +21,7 @@ on:
       - .github/tests/tag-release-test.sh
       - .github/workflows/build-project.yaml
       - .github/workflows/push.yaml
+      - .github/workflows/tag-release.yaml
       - .github/workflows/tag-release-test.yaml
   workflow_dispatch:
 

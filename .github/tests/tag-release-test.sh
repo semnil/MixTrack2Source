@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs the shell of the release path from this commit against fixtures and asserts what it does:
-# .github/scripts/release-tag-shape itself, the Check Release Tag step of push.yaml, and the Check Event Data step of
-# build-project.yaml.
+# .github/scripts/release-tag-shape itself, the Check Release Tag step of push.yaml, the Check Event Data step of
+# build-project.yaml, and the Tag and Dispatch Release step of tag-release.yaml against fixture repositories with a
+# bare origin and a fake gh.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -11,6 +12,10 @@ trap 'rm -rf "$work"' EXIT
 count=0
 failures=0
 
+# Fixture repositories see none of the user's or the system's git configuration.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid
+export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 unset RUNNER_DEBUG
 
 # step_script <workflow file> <job> <step name>: prints the run script of that step.
@@ -52,6 +57,23 @@ verdict() {
     echo fail
   fi
 }
+
+# --- wiring between tag-release.yaml and push.yaml ---
+
+workflows="$root/.github/workflows"
+expect "wiring: tag-release.yaml runs when the workflow push.yaml names finishes" \
+  "$(yq '.name' "$workflows/push.yaml")" "$(yq '.on.workflow_run.workflows | join(",")' "$workflows/tag-release.yaml")"
+expect "wiring: push.yaml accepts the workflow_dispatch tag-release.yaml sends" \
+  true "$(yq '.on | has("workflow_dispatch")' "$workflows/push.yaml")"
+expect "wiring: push.yaml still runs on a tag pushed by hand" \
+  '*' "$(yq '.on.push.tags | join(",")' "$workflows/push.yaml")"
+tag_if=$(yq '.jobs.tag.if' "$workflows/tag-release.yaml")
+gated=false
+if [[ "$tag_if" == *"github.event.workflow_run.conclusion == 'success'"* \
+  && "$tag_if" == *"github.event.workflow_run.event == 'push'"* && "$tag_if" != *"||"* ]]; then
+  gated=true
+fi
+expect "wiring: the tag job runs only after a successful Push run started by a push" true "$gated"
 
 # --- .github/scripts/release-tag-shape ---
 
@@ -152,6 +174,215 @@ expect "check-event: workflow_dispatch on a branch is an unpackaged RelWithDebIn
   "codesign=true notarize=false package=false config=RelWithDebInfo " "$(event_outputs workflow_dispatch branch master)"
 expect "check-event: push of master is a packaged RelWithDebInfo build" \
   "codesign=true notarize=false package=true config=RelWithDebInfo " "$(event_outputs push branch master)"
+
+# --- tag-release.yaml, tag, Tag and Dispatch Release ---
+
+tag_step=$(step_script tag-release.yaml tag "Tag and Dispatch Release 🏷️")
+
+# write_buildspec <version|absent|none|invalid>: writes buildspec.json in the fixture clone.
+write_buildspec() {
+  case "$1" in
+    absent) rm -f "$clone/buildspec.json" ;;
+    none) printf '{\n    "name": "mix-track-to-source"\n}\n' > "$clone/buildspec.json" ;;
+    invalid) printf '{\n    "version": \n' > "$clone/buildspec.json" ;;
+    *) printf '{\n    "name": "mix-track-to-source",\n    "version": "%s"\n}\n' "$1" > "$clone/buildspec.json" ;;
+  esac
+}
+# new_fixture <version|absent>: a bare origin, a fake gh, and a clone whose root commit holds the shape check and
+# buildspec.json.
+new_fixture() {
+  fixture=$(mktemp -d "$work/fixture.XXXXXX")
+  origin="$fixture/origin.git"
+  clone="$fixture/clone"
+  git init -q --bare -b master "$origin"
+  git init -q -b master "$clone"
+  git -C "$clone" remote add origin "$origin"
+  mkdir -p "$clone/.github/scripts" "$fixture/bin" "$fixture/runs" "$fixture/tmp"
+  cp "$shape" "$clone/.github/scripts/release-tag-shape"
+  : > "$fixture/gh.log"
+  cat > "$fixture/bin/gh" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$fixture/gh.log"
+if [ "\$1 \$2" = "run list" ]; then
+  if [ -e "$fixture/gh-fails" ]; then echo "gh: run list failed" >&2; exit 1; fi
+  shift 2
+  workflow=
+  branch=
+  while [ \$# -gt 0 ]; do
+    case "\$1" in
+      --workflow) workflow=\$2; shift 2 ;;
+      --branch) branch=\$2; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [ "\$workflow" = push.yaml ] && [ -n "\$branch" ] && [ -f "$fixture/runs/\$branch" ]; then cat "$fixture/runs/\$branch"; else echo 0; fi
+  exit 0
+fi
+if [ "\$1 \$2" = "workflow run" ]; then exit 0; fi
+echo "unexpected gh call: \$*" >&2
+exit 2
+EOF
+  chmod +x "$fixture/bin/gh"
+  commit "$1"
+}
+# commit <version|absent|none|invalid>: commits buildspec.json at that version with a change of its own.
+commit() {
+  write_buildspec "$1"
+  echo "$1" >> "$clone/changes"
+  git -C "$clone" add -A
+  git -C "$clone" commit -q -m "version $1"
+}
+head_of() { git -C "$clone" rev-parse "${1:-HEAD}"; }
+publish() { git -C "$clone" push -q origin master; }
+remote_tag() {
+  if [ "${3:-}" = annotated ]; then
+    git -C "$clone" tag -a -m "$1" "$1" "$2"
+  else
+    git -C "$clone" tag "$1" "$2"
+  fi
+  git -C "$clone" push -q origin "refs/tags/$1"
+}
+origin_tags() {
+  git -C "$origin" for-each-ref --format='%(refname:strip=2)=%(objectname)' refs/tags | LC_ALL=C sort | tr '\n' ' '
+}
+with_tag() { { printf '%s' "$1" | tr ' ' '\n'; echo "$2"; } | sed '/^$/d' | LC_ALL=C sort | tr '\n' ' '; }
+
+# run_tag <name> <pass|fail> <reason substring> <expected origin tags> <expected dispatches> [tested commit]
+run_tag() {
+  local name="$1" want="$2" reason="$3" want_tags="$4" want_dispatch="$5" sha="${6:-}" out status got dispatched
+  if [ -z "$sha" ]; then sha=$(head_of); fi
+  git -C "$clone" checkout -q --detach "$sha"
+  out=$(cd "$clone" && PATH="$fixture/bin:$PATH" TMPDIR="$fixture/tmp" HEAD_SHA="$sha" GH_TOKEN=unused GH_REPO=owner/repo \
+    bash -e -o pipefail -c "$tag_step" 2>&1) && status=0 || status=$?
+  got=$(verdict "$status" "$out" "$reason")
+  dispatched=$(awk '$1 == "workflow" && $2 == "run" { printf "%s;", $0 }' "$fixture/gh.log")
+  expect "tag-release: $name" "${want} | tags: ${want_tags} | dispatched: ${want_dispatch}" \
+    "${got} | tags: $(origin_tags) | dispatched: ${dispatched}" "$out"
+}
+dispatch_of() { echo "workflow run push.yaml --ref $1;"; }
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+run_tag "version bump tags the tested commit and dispatches push.yaml on the tag" pass "" \
+  "1.0.3=$(head_of) " "$(dispatch_of 1.0.3)"
+
+new_fixture 1.0.2
+commit 1.1.0-rc1
+publish
+run_tag "prerelease bump" pass "" "1.1.0-rc1=$(head_of) " "$(dispatch_of 1.1.0-rc1)"
+
+new_fixture 1.0.2
+commit 1.0.2
+publish
+run_tag "push that keeps the version does nothing" pass "" "" ""
+
+new_fixture 1.0.2
+publish
+run_tag "root commit does nothing" pass "" "" ""
+
+new_fixture 1.0.2
+commit 1.0.3-alpha1
+publish
+run_tag "version the release path declines fails before tagging" fail "refusing to tag" "" ""
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of HEAD^)"
+before=$(origin_tags)
+run_tag "tag at another commit is left alone and fails the job" fail "already names" "$before" ""
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of HEAD^)" annotated
+before=$(origin_tags)
+run_tag "annotated tag at another commit is left alone and fails the job" fail "already names" "$before" ""
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of)"
+before=$(origin_tags)
+run_tag "tag at the tested commit with no push.yaml run on it gets the dispatch" pass "" "$before" "$(dispatch_of 1.0.3)"
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of)" annotated
+before=$(origin_tags)
+run_tag "annotated tag at the tested commit with no push.yaml run on it gets the dispatch" pass "" \
+  "$before" "$(dispatch_of 1.0.3)"
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of)"
+echo 1 > "$fixture/runs/1.0.3"
+before=$(origin_tags)
+run_tag "tag at the tested commit with a push.yaml run on it is not dispatched again" pass "" "$before" ""
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of)"
+echo 1 > "$fixture/runs/1.0.2"
+before=$(origin_tags)
+run_tag "a push.yaml run on another tag does not count" pass "" "$before" "$(dispatch_of 1.0.3)"
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.30 "$(head_of HEAD^)"
+run_tag "tag whose name starts with the version is another tag" pass "" \
+  "$(with_tag "$(origin_tags)" "1.0.3=$(head_of)")" "$(dispatch_of 1.0.3)"
+
+new_fixture 1.0.2
+commit 1.0.3
+tested=$(head_of)
+commit 1.0.3
+publish
+run_tag "tag names the tested commit, not the tip of master" pass "" "1.0.3=${tested} " "$(dispatch_of 1.0.3)" "$tested"
+
+new_fixture absent
+commit 1.0.3
+publish
+run_tag "parent without buildspec.json fails before tagging" fail \
+  "cannot read the version in buildspec.json at $(head_of HEAD^)" "" ""
+
+new_fixture 1.0.2
+commit none
+publish
+run_tag "buildspec.json without a version fails before tagging" fail \
+  "cannot read the version in buildspec.json at $(head_of)" "" ""
+
+new_fixture 1.0.2
+commit invalid
+publish
+run_tag "buildspec.json that is not JSON fails before tagging" fail \
+  "cannot read the version in buildspec.json at $(head_of)" "" ""
+
+new_fixture 1.0.2
+rm "$clone/.github/scripts/release-tag-shape"
+commit 1.0.3
+publish
+run_tag "missing shape check fails before tagging" fail "could not run" "" ""
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+remote_tag 1.0.3 "$(head_of)"
+touch "$fixture/gh-fails"
+before=$(origin_tags)
+run_tag "failing run list stops the job without a dispatch" "abort (exit 1 without ::error::)" "" "$before" ""
+
+new_fixture 1.0.2
+commit 1.0.3
+publish
+printf '#!/bin/sh\nexit 1\n' > "$origin/hooks/pre-receive"
+chmod +x "$origin/hooks/pre-receive"
+run_tag "rejected tag push stops the job without a dispatch" "abort (exit 1 without ::error::)" "" "" ""
 
 echo "${count} cases, ${failures} failed"
 if [ "$failures" -ne 0 ]; then

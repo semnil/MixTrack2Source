@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The single home for the forms a release tag takes. The create-release job of push.yaml asks it before it creates a
-# release from a tag.
+# The single home for the forms a release tag takes. tag-release.yaml asks it before it pushes a tag, and the
+# create-release job of push.yaml asks it before it creates a release from a tag.
 #
 # Takes one argument: the tag, which is the version in buildspec.json as it is (no leading v).
 #   accepted      prints true or false (whether the release is a prerelease) on stdout and exits 0
