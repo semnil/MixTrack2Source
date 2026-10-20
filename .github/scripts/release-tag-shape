@@ -2,7 +2,8 @@
 # The single home for the forms a release tag takes. tag-release.yaml asks it before it pushes a tag, and the
 # create-release job of push.yaml asks it before it creates a release from a tag.
 #
-# Takes one argument: the tag, which is the version in buildspec.json as it is (no leading v).
+# Takes one argument: the tag, with no leading v. tag-release.yaml passes the version in buildspec.json as it is, and
+# create-release passes the tag its run is on, which may have been pushed by hand.
 #   accepted      prints true or false (whether the release is a prerelease) on stdout and exits 0
 #   declined      prints the accepted forms on stderr and exits 1
 #   called wrong  exits 2 (no argument, more than one, or an empty one)
