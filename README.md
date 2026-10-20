@@ -31,7 +31,7 @@ flowchart TB
 - The audio source uses the selected mix track as input and allows various filters to be applied
 - Allows selection of mix tracks as output, excluding the mix track selected as input
 - Buffering causes a minimum delay of 1024 samples (21 ms at 48 kHz)
-  - If even greater delay is unacceptable, enable **Low Latency Buffering Mode** in OBS Settings > Audio > Advanced
+  - If even greater delay is unacceptable, enable **Low Latency Audio Buffering Mode (For Decklink/NDI outputs)** in OBS Settings > Audio > Advanced
 
 ## Install
 
