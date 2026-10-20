@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# The single home for the forms a release tag takes. tag-release.yaml asks it before it pushes a tag, and the
+# create-release job of push.yaml asks it before it creates a release from a tag.
+#
+# Takes one argument: the tag, which is the version in buildspec.json as it is (no leading v).
+#   accepted      prints true or false (whether the release is a prerelease) on stdout and exits 0
+#   declined      prints the accepted forms on stderr and exits 1
+#   called wrong  exits 2 (no argument, more than one, or an empty one)
+# A caller treats any status other than 0 or 1 as this check being broken, not as a verdict on the tag.
+set -u
+shopt -s extglob
+
+if [[ $# -ne 1 ]] || [[ -z "$1" ]]; then
+  echo "usage: ${0##*/} <tag>" >&2
+  exit 2
+fi
+
+case "$1" in
+  +([0-9]).+([0-9]).+([0-9]))
+    echo false
+    ;;
+  +([0-9]).+([0-9]).+([0-9])-@(beta|rc)*([0-9]))
+    echo true
+    ;;
+  *)
+    printf '%s is not a release tag: the forms are X.Y.Z, X.Y.Z-beta and X.Y.Z-rc, the last two optionally followed by digits\n' "$1" >&2
+    exit 1
+    ;;
+esac

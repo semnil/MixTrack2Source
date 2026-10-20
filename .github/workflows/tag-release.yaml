@@ -1,0 +1,115 @@
+name: Tag Release
+run-name: ${{ github.event.workflow_run.head_sha }} tag release 🏷️
+
+# Turns a merged version bump into a release. The version lives in buildspec.json ("version") alone, and a version
+# bump is its own pull request. When the Push workflow finishes green on a push to master and that push changed the
+# version, this tags the tested commit with the version (no leading v) and dispatches push.yaml on the tag, whose
+# create-release job makes the draft release.
+# push.yaml runs on the tag by workflow_dispatch, not by its push: tags trigger. A tag pushed with GITHUB_TOKEN starts
+# no workflow.
+# A push that does not move the version ends without tagging. A version that .github/scripts/release-tag-shape
+# declines fails the job before the tag is pushed. A tag already on the remote is never moved.
+on:
+  workflow_run:
+    workflows: [Push]
+    types: [completed]
+    branches: [master]
+
+# One group per tested commit, so two merges landing together each get their own run and neither cancels the other.
+concurrency:
+  group: tag-release-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create and push the tag
+  actions: write # dispatch push.yaml
+
+jobs:
+  tag:
+    name: Tag Version Bump 🏷️
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The commit the Push workflow reported on, not whatever master points at now, with its first parent readable
+      # so the version can be compared.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      # A tag already on the remote is never moved. One at another commit fails the job. One at this commit is this
+      # release's own tag, and push.yaml is dispatched on it unless a push.yaml run on that tag exists.
+      - name: Tag and Dispatch Release 🏷️
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          : Tag and Dispatch Release 🏷️
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+
+          read_version() {
+            local value
+            value=$(git show "$1:buildspec.json") && value=$(jq -r '.version // empty' <<< "${value}") && [[ -n "${value}" ]] \
+              && printf '%s\n' "${value}"
+          }
+
+          # HEAD_SHA is compared with its first parent: the previous tip of master for a merge commit, and the commit
+          # before the last one for a rebase merge.
+          if ! parent=$(git rev-parse --verify --quiet "${HEAD_SHA}^"); then
+            echo "${HEAD_SHA} has no parent — nothing to compare"
+            exit 0
+          fi
+          if ! version=$(read_version "${HEAD_SHA}"); then
+            echo "::error::cannot read the version in buildspec.json at ${HEAD_SHA} — refusing to tag"
+            exit 1
+          fi
+          if ! previous=$(read_version "${parent}"); then
+            echo "::error::cannot read the version in buildspec.json at ${parent} — refusing to tag"
+            exit 1
+          fi
+          if [[ "${previous}" == "${version}" ]]; then
+            echo "version unchanged at ${version} — not a release"
+            exit 0
+          fi
+
+          tag="${version}"
+          why=$(mktemp)
+          prerelease=$(bash .github/scripts/release-tag-shape "${tag}" 2> "${why}") && status=0 || status=$?
+          message=$(tr '\n' ' ' < "${why}")
+          if (( status == 1 )); then
+            echo "::error::${message}"
+            echo "::error::refusing to tag ${HEAD_SHA} — correct the version in buildspec.json and merge another version bump"
+            exit 1
+          fi
+          if (( status != 0 )) || [[ "${prerelease}" != 'true' && "${prerelease}" != 'false' ]]; then
+            echo "::error::the release tag shape check could not run: exit ${status}, answered '${prerelease//$'\n'/ }' ${message}"
+            exit 1
+          fi
+          echo "version ${previous} -> ${version} (prerelease=${prerelease})"
+
+          listed=$(git ls-remote --tags origin "refs/tags/${tag}" "refs/tags/${tag}^{}")
+          peeled=$(printf '%s\n' "${listed}" | awk -v ref="refs/tags/${tag}^{}" '$2 == ref { print $1 }')
+          direct=$(printf '%s\n' "${listed}" | awk -v ref="refs/tags/${tag}" '$2 == ref { print $1 }')
+          existing=${peeled:-${direct}}
+          if [[ -z "${existing}" ]]; then
+            git tag "${tag}" "${HEAD_SHA}"
+            git push origin "refs/tags/${tag}"
+            echo "tagged ${tag} at ${HEAD_SHA}"
+          elif [[ "${existing}" != "${HEAD_SHA}" ]]; then
+            echo "::error::${tag} already names ${existing}, not ${HEAD_SHA} — leaving it alone"
+            exit 1
+          else
+            runs=$(gh run list --workflow push.yaml --branch "${tag}" --json databaseId --jq length)
+            if (( runs > 0 )); then
+              echo "${tag} already names ${HEAD_SHA} and push.yaml has run on it"
+              exit 0
+            fi
+            echo "${tag} already names ${HEAD_SHA} and push.yaml has not run on it"
+          fi
+          gh workflow run push.yaml --ref "${tag}"
+          echo "dispatched push.yaml on ${tag}"

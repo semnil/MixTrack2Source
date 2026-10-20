@@ -87,3 +87,17 @@ After applying a limiter to the input on Track 1, the settings for outputting th
 
 Please refer to the template repository information.  
 https://github.com/obsproject/obs-plugintemplate
+
+### Release
+
+The version is defined only by `"version"` in `buildspec.json`, and the release tag is that version as it is (for example `1.0.3`, with no leading `v`).
+To release, merge a pull request that changes nothing but that version:
+
+1. When the `Push` workflow finishes successfully for the merge commit on `master`, the `Tag Release` workflow tags that commit with the version and runs the `Push` workflow on the tag
+2. The run on the tag builds the release packages and creates a draft release
+3. Review the draft on the [Releases](https://github.com/semnil/MixTrack2Source/releases) page and publish it
+
+- A version takes the form `X.Y.Z`, `X.Y.Z-beta` or `X.Y.Z-rc`, the last two optionally followed by digits (for example `1.1.0-rc1`), and the last two are released as prereleases. For any other form, `Tag Release` fails without pushing a tag
+- A push to `master` that does not change the version does nothing. The commit compared with its first parent is the merge commit, or the last commit of a rebase merge
+- A tag that already exists on the remote is never moved. If it names another commit, `Tag Release` fails
+- A tag pushed by hand runs the same release path

@@ -1,0 +1,40 @@
+name: Tag release test
+
+# Runs .github/tests/tag-release-test.sh, which executes the shell of the release path from this commit
+# (release-tag-shape, the create-release check of push.yaml, the event check of build-project.yaml and the tag step of
+# tag-release.yaml) against fixtures and fixture repositories, and asserts what each one does.
+on:
+  pull_request:
+    paths:
+      - .github/scripts/release-tag-shape
+      - .github/tests/tag-release-test.sh
+      - .github/workflows/build-project.yaml
+      - .github/workflows/push.yaml
+      - .github/workflows/tag-release.yaml
+      - .github/workflows/tag-release-test.yaml
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - .github/scripts/release-tag-shape
+      - .github/tests/tag-release-test.sh
+      - .github/workflows/build-project.yaml
+      - .github/workflows/push.yaml
+      - .github/workflows/tag-release.yaml
+      - .github/workflows/tag-release-test.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tag-release-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Run the release path against fixtures
+        run: bash .github/tests/tag-release-test.sh
