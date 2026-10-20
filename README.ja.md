@@ -1,0 +1,105 @@
+# Mix Track to Source
+
+> For the English version, see [README.md](README.md).
+
+```mermaid
+flowchart TB
+    subgraph OBS のミックストラック
+        T1["トラック 1 から 6 の
+        いずれか"]
+        T2@{ shape: procs, label: "出力トラック" }
+    end
+
+    subgraph Mix Track to Source プラグイン
+        subgraph P1["mt2s_callback()"]
+            P2["obs_source_output_audio()"]
+        end
+
+        subgraph OBS の音声ミキサー
+            S["ソース"]
+        end
+        P2-->S
+    end
+    T1-->P1
+    S-->T2
+    S-.-x|"ループバックを避けるため、
+    入力トラックには
+    出力できない"|T1
+```
+
+- 入力にするミックストラックを選んで音声ソースを作成する
+- 音声ソースは選んだミックストラックを入力とし、各種フィルタを適用できる
+- 入力に選んだミックストラックを除き、ミックストラックを出力先に選べる
+- バッファリングにより、最小で 1024 サンプル (48 kHz で 21 ms) の遅延が生じる
+  - これ以上の遅延を許容できない場合は、OBS の 設定 > 音声 > 詳細設定 で **低遅延音声バッファリングモード (Decklink/NDI 出力用)** を有効にする
+
+## インストール
+
+[Releases](https://github.com/semnil/MixTrack2Source/releases) ページからアーカイブファイルをダウンロードする。
+
+### Windows
+
+`mix-track-to-source-<version>-windows-x64-Installer.exe` を実行してインストールする。
+
+または、アーカイブファイルを展開し、`mix-track-to-source` フォルダを次の場所に置く:
+
+```
+C:\ProgramData\obs-studio\plugins
+```
+
+
+### macOS
+
+`mix-track-to-source-<version>-macos-universal.pkg` を実行してインストールする。
+
+
+### Ubuntu
+
+次のコマンドを実行する:
+
+```
+sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
+```
+
+
+## 使い方
+
+- `ソース追加` > `ミックストラック` で音声ソースを追加する
+- 入力に使うミックストラックを `トラック 1` から `トラック 6` の中から選ぶ
+- 追加した音声ソースの出力先を オーディオの詳細プロパティ ウィンドウで選ぶ
+  - 入力と出力に同じトラックは選べない
+  - 必要に応じて、他のソースからの出力を解除する
+
+### 使用例
+
+トラック 1 の入力にリミッターを適用し、その音声を配信用にトラック 6 へ出力する設定は次のとおり:
+
+![](img/Properties_for_Mix_Track.png)
+![](img/Filters_for_Mix_Track.png)
+![](img/Advanced_Audio_Properties.png)
+![](img/Settings_Output.png)
+
+- 音声ソースを追加するときに、入力を トラック 1 にする
+- その音声ソースのフィルタにリミッターを追加する
+- その音声ソースのトラック 6 への出力を有効にし、他の音声ソースのトラック 6 への出力を無効にする
+- 設定 > 出力 > 配信 > 配信設定 > 音声トラック で トラック 6 を選ぶ
+
+
+## 開発者向け情報
+
+テンプレートリポジトリの情報を参照する。  
+https://github.com/obsproject/obs-plugintemplate
+
+### リリース
+
+バージョンの定義元は `buildspec.json` の `"version"` だけで、リリースタグはそのバージョンそのもの (例: `1.0.3`。先頭に `v` は付けない)。
+リリースするには、そのバージョン以外を何も変更しないプルリクエストをマージする:
+
+1. `master` 上のマージコミットに対する `Push` ワークフローが成功すると、`Tag Release` ワークフローがそのコミットにバージョンのタグを付け、そのタグで `Push` ワークフローを実行する
+2. タグでの実行がリリースパッケージをビルドし、下書きのリリースを作成する
+3. [Releases](https://github.com/semnil/MixTrack2Source/releases) ページで下書きを確認して公開する
+
+- バージョンの形式は `X.Y.Z` (例: `1.0.3`)。それ以外の形式では、ビルドが失敗する (CMake はバージョンに数字しか受け付けないため、`1.0.3-rc1` は拒否される) か、`Tag Release` がタグを push せずに失敗する
+- バージョンを変更しない `master` への push では何も起きない。最初の親と比較されるコミットは、マージコミット、または rebase マージの最後のコミットである
+- リモートに既に存在するタグは移動しない。そのタグが別のコミットを指している場合、`Tag Release` は失敗する
+- 手で push したタグも同じリリース経路を通る

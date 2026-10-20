@@ -1,5 +1,7 @@
 # Mix Track to Source
 
+> 日本語版は [README.ja.md](README.ja.md) を参照してください.
+
 ```mermaid
 flowchart TB
     subgraph OBS Mix tracks
