@@ -30,6 +30,10 @@ flowchart TB
 - Select an input mix track to create an audio source
 - The audio source uses the selected mix track as input and allows various filters to be applied
 - Allows selection of mix tracks as output, excluding the mix track selected as input
+- Removes the audio source's output tracks from the other audio sources that send audio to its input track, so their audio is not output twice (other Mix Track sources are left alone)
+  - The removed tracks are turned back on when the audio source is removed or its input or output tracks change, unless another Mix Track source still needs them removed
+  - A track the user turns back on is left as it is from then on
+  - The record of removed tracks is saved with the scene collection
 - Buffering causes a minimum delay of 1024 samples (21 ms at 48 kHz)
   - If even greater delay is unacceptable, enable **Low Latency Audio Buffering Mode (For Decklink/NDI outputs)** in OBS Settings > Audio > Advanced
 
@@ -68,7 +72,8 @@ sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
 - Select a mix track to use for input from `Track 1` to `Track 6`
 - Select outputs for added audio track in the Advanced Audio Properties window
   - Cannot select the same track for both input and output
-  - Deselect the output from other sources as needed
+  - The output tracks are removed automatically from the other audio sources that send audio to the input track
+    - A source that starts sending audio to the input track later keeps them until the input or output tracks of this audio source change or the scene collection is loaded again; deselect them by hand if needed
 
 ### Usage example
 
@@ -81,7 +86,7 @@ After applying a limiter to the input on Track 1, the settings for outputting th
 
 - When adding an audio source, set the input to Track 1
 - Add a limiter to the filter of that audio source
-- Enable the output of Track 6 for that audio source and disable the output to Track 6 for other audio sources
+- Enable the output of Track 6 for that audio source; the output to Track 6 is then disabled automatically for the other audio sources that send audio to Track 1
 - Select Track 6 in Settings > Output > Streaming > Streaming Settings > Audio Track
 
 
