@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-module.h>
 #include <plugin-support.h>
+#include <util/threading.h>
 
 #ifndef _MSC_VER
 #include <stdatomic.h>
@@ -47,15 +48,43 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 typedef struct {
 	obs_source_t *source;
-	atomic_size_t mix_idx; // audio thread (read) / UI thread (read-write)
+	atomic_size_t mix_idx;    // audio thread and output setters (read) / UI thread (read-write)
+	atomic_size_t own_mixers; // outputs the latest audio_mixers signal hands to libobs (output setters)
 } mt2s_context_t;
+
+// input track the plugin's own write on this thread takes out of the latest outputs, or SIZE_MAX
+static THREAD_LOCAL size_t mt2s_removing = SIZE_MAX;
+
+// the output mixers without the given input track
+static uint32_t mt2s_without_input(uint32_t mixers, size_t mix_idx)
+{
+	return mix_idx < MAX_AUDIO_MIXES ? mixers & ~((uint32_t)1 << mix_idx) : mixers;
+}
 
 void mt2s_avoid_loopback(mt2s_context_t *context, size_t mix_idx)
 {
 	// override output settings to avoid loopback
-	size_t mixers = obs_source_get_audio_mixers(context->source);
-	if (mixers != (mixers & ~((size_t)1 << mix_idx)))
-		obs_source_set_audio_mixers(context->source, mixers & ~((size_t)1 << mix_idx));
+	uint32_t mixers = obs_source_get_audio_mixers(context->source);
+	if (mixers == mt2s_without_input(mixers, mix_idx))
+		return;
+
+	// the signal handler takes the track out of the latest outputs instead of the value read here
+	mt2s_removing = mix_idx;
+	obs_source_set_audio_mixers(context->source, mt2s_without_input(mixers, mix_idx));
+	mt2s_removing = SIZE_MAX;
+}
+
+// keeps the input track out of the outputs whoever sets them (libobs stores the value the signal returns);
+// the plugin's own write takes its track out of the outputs the latest signal handed to libobs
+static void mt2s_on_mixers(void *param, calldata_t *cd)
+{
+	mt2s_context_t *context = (mt2s_context_t *)param;
+	uint32_t mixers = mt2s_removing == SIZE_MAX
+				  ? (uint32_t)calldata_int(cd, "mixers")
+				  : mt2s_without_input((uint32_t)atomic_load(&context->own_mixers), mt2s_removing);
+	mixers = mt2s_without_input(mixers, atomic_load(&context->mix_idx));
+	atomic_store(&context->own_mixers, mixers);
+	calldata_set_int(cd, "mixers", mixers);
 }
 
 static void mt2s_callback(void *param, size_t mix_idx, struct audio_data *data)
@@ -128,6 +157,10 @@ void *mt2s_create(obs_data_t *settings, obs_source_t *source)
 	if (context) {
 		context->source = source;
 		atomic_init(&context->mix_idx, SIZE_MAX);
+		atomic_init(&context->own_mixers, 0);
+
+		// keep the input track out of the outputs
+		signal_handler_connect(obs_source_get_signal_handler(source), "audio_mixers", mt2s_on_mixers, context);
 
 		// deselect all outputs
 		obs_source_set_audio_mixers(context->source, 0);
@@ -145,6 +178,8 @@ void mt2s_destroy(void *data)
 
 	mt2s_context_t *context = (mt2s_context_t *)data;
 	mt2s_disconnect(context);
+	signal_handler_disconnect(obs_source_get_signal_handler(context->source), "audio_mixers", mt2s_on_mixers,
+				  context);
 	free(context);
 }
 
@@ -154,7 +189,11 @@ void mt2s_update(void *data, obs_data_t *settings)
 		return;
 
 	mt2s_context_t *context = (mt2s_context_t *)data;
-	mt2s_connect(context, obs_data_get_int(settings, "MixTrack"));
+	size_t mix_idx = obs_data_get_int(settings, "MixTrack");
+
+	// the new input track stops being an output before the source receives it
+	mt2s_avoid_loopback(context, mix_idx);
+	mt2s_connect(context, mix_idx);
 }
 
 // configs
