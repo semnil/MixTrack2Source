@@ -19,6 +19,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 #include <plugin-support.h>
 
+#ifdef ENABLE_UPDATE_CHECK
+#include "update-check.h"
+#endif
+
 #ifndef _MSC_VER
 #include <stdatomic.h>
 #else
@@ -216,11 +220,19 @@ bool obs_module_load(void)
 				       .update = mt2s_update};
 	obs_register_source(&info);
 
+#ifdef ENABLE_UPDATE_CHECK
+	mt2s_update_check_load();
+#endif
+
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
 	return true;
 }
 
 void obs_module_unload(void)
 {
+#ifdef ENABLE_UPDATE_CHECK
+	mt2s_update_check_unload();
+#endif
+
 	obs_log(LOG_INFO, "plugin unloaded");
 }
