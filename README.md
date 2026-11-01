@@ -90,7 +90,7 @@ After applying a limiter to the input on Track 1, the settings for outputting th
 - At startup, the plugin asks GitHub for the latest release
   - To stop this, turn off **Tools > Mix Track to Source: Check for Updates at Startup**
 - When a newer version is available, it asks whether to download it
-  - The file is saved to the Downloads folder (to the temporary folder when the Downloads folder does not exist) and is kept only when its SHA-256 matches the value that GitHub shows for the file
+  - The file is saved to the Downloads folder (to `plugin_config/mix-track-to-source` in the OBS settings folder when the Downloads folder does not exist) and is kept only when its SHA-256 matches the value that GitHub shows for the file
 - After the download, on Windows and macOS it asks whether to start the installer
   - On Ubuntu it shows where the file is saved. Install it with `sudo dpkg -i`
 

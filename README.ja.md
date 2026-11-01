@@ -90,7 +90,7 @@ sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
 - 起動時に GitHub へ最新のリリースを問い合わせる
   - 止めるには **ツール > Mix Track to Source: 起動時に更新を確認する** をオフにする
 - 新しい版があると、ダウンロードするかを確認する
-  - ファイルは「ダウンロード」フォルダ (それが無いときは一時フォルダ) に保存し、SHA-256 が GitHub に示されている値と一致したときだけ残す
+  - ファイルは「ダウンロード」フォルダ (それが無いときは OBS の設定フォルダの中の `plugin_config/mix-track-to-source`) に保存し、SHA-256 が GitHub に示されている値と一致したときだけ残す
 - ダウンロード後、Windows と macOS ではインストーラーを起動するかを確認する
   - Ubuntu では保存先を表示する。`sudo dpkg -i` でインストールする
 

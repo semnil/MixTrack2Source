@@ -88,6 +88,16 @@ QString text(const char *key)
 	return QString::fromUtf8(obs_module_text(key));
 }
 
+// Creates the plugin's folder in the OBS settings folder when it is missing and returns it
+QString config_dir()
+{
+	char *dir = obs_module_config_path("");
+	os_mkdirs(dir);
+	const QString result = QString::fromUtf8(dir);
+	bfree(dir);
+	return result;
+}
+
 bool load_check_at_startup()
 {
 	char *path = obs_module_config_path(CONFIG_FILE);
@@ -105,9 +115,7 @@ bool load_check_at_startup()
 
 void save_check_at_startup(bool enabled)
 {
-	char *dir = obs_module_config_path("");
-	os_mkdirs(dir);
-	bfree(dir);
+	config_dir();
 
 	char *path = obs_module_config_path(CONFIG_FILE);
 	obs_data_t *data = obs_data_create();
@@ -345,9 +353,9 @@ void start_check()
 	if (!ASSET_SUFFIX || receiver)
 		return;
 
+	// Both folders belong to the current user; a temporary folder that other users can write to is not used
 	const QString download_dir =
-		mt2s::existing_dir_or(QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-				      QStandardPaths::writableLocation(QStandardPaths::TempLocation));
+		mt2s::existing_dir_or(QStandardPaths::writableLocation(QStandardPaths::DownloadLocation), config_dir());
 
 	receiver = new QObject();
 	start_worker([download_dir]() { check_for_update(download_dir); });
