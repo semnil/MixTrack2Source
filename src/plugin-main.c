@@ -203,7 +203,7 @@ void mt2s_update(void *data, obs_data_t *settings)
 // configs
 const char *obs_module_name(void)
 {
-	return "Mix Track to Source";
+	return PLUGIN_DISPLAY_NAME;
 }
 
 const char *obs_module_description(void)
