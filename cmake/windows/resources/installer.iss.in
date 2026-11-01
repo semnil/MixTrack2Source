@@ -27,7 +27,7 @@ english.LegacyLocation=Also install for OBS Studio 31.1.1 to 32 (legacy plugin l
 japanese.LegacyLocation=OBS Studio 31.1.1〜32 でも使えるようにする (旧方式の場所にも置く)
 
 [Tasks]
-Name: "legacylocation"; Description: "{cm:LegacyLocation}"
+Name: "legacylocation"; Description: "{cm:LegacyLocation}"; Flags: unchecked
 
 [InstallDelete]
 Type: files; Name: "{app}\bin\64bit\{#MyAppName}.dll"

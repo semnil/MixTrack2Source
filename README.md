@@ -50,8 +50,8 @@ OBS Studio 31.1.1 or later is required. The plugin is installed in the plugin lo
 ### Windows
 
 Run the `mix-track-to-source-<version>-windows-x64-Installer.exe` file to install it.
-By default, the installer also places the plugin in the legacy plugin location so that OBS Studio 31.1.1 to 32 can load it.
-If you use only OBS Studio 33 or later, clear **Also install for OBS Studio 31.1.1 to 32 (legacy plugin location)** in the installer.
+To use it with OBS Studio 31.1.1 to 32, select **Also install for OBS Studio 31.1.1 to 32 (legacy plugin location)** in the installer, so that it also places the plugin in the legacy plugin location.
+This option is cleared by default.
 
 Alternatively, extract the archive file and place the `mix-track-to-source` folder in the following location:
 
