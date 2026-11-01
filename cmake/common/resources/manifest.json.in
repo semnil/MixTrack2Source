@@ -1,0 +1,14 @@
+{
+    "display_name": "@PLUGIN_DISPLAY_NAME@",
+    "id": "@MACOS_BUNDLEID@",
+    "version": "@PLUGIN_VERSION@",
+    "authors": ["@PLUGIN_AUTHOR@"],
+    "name": "@CMAKE_PROJECT_NAME@",
+    "urls": {
+        "repository": "https://github.com/semnil/MixTrack2Source",
+        "website": "@PLUGIN_WEBSITE@",
+        "support": "https://github.com/semnil/MixTrack2Source/issues"
+    },
+    "has_banner": false,
+    "has_icon": false
+}
