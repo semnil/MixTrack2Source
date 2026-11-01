@@ -36,4 +36,11 @@ endif()
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c)
 
+if(ENABLE_FRONTEND_API AND ENABLE_QT)
+  find_package(CURL REQUIRED)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
+  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/update-check.cpp src/update-check.h src/update-version.hpp)
+  target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_UPDATE_CHECK)
+endif()
+
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
