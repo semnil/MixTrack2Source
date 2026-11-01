@@ -567,6 +567,28 @@ struct mt2s_ref {
 	struct mt2s_ref *next;
 };
 
+static void mt2s_ref_push(struct mt2s_ref **refs, obs_source_t *source)
+{
+	struct mt2s_ref *ref = bzalloc(sizeof(struct mt2s_ref));
+	ref->source = source;
+	ref->next = *refs;
+	*refs = ref;
+}
+
+// the live instances, each with a reference the caller releases
+static struct mt2s_ref *mt2s_instance_refs(void)
+{
+	struct mt2s_ref *refs = NULL;
+	pthread_mutex_lock(&mt2s_instances_lock);
+	for (struct mt2s_instance *i = mt2s_instances; i; i = i->next) {
+		obs_source_t *s = obs_weak_source_get_source(i->weak);
+		if (s)
+			mt2s_ref_push(&refs, s);
+	}
+	pthread_mutex_unlock(&mt2s_instances_lock);
+	return refs;
+}
+
 // Lets every live instance take over the bits waiting for this source, then turns the rest back on.
 static void mt2s_settle(obs_source_t *x)
 {
@@ -574,19 +596,7 @@ static void mt2s_settle(obs_source_t *x)
 	if (!uuid || !*uuid)
 		return;
 
-	struct mt2s_ref *refs = NULL;
-	pthread_mutex_lock(&mt2s_instances_lock);
-	for (struct mt2s_instance *i = mt2s_instances; i; i = i->next) {
-		obs_source_t *s = obs_weak_source_get_source(i->weak);
-		if (s) {
-			struct mt2s_ref *ref = bzalloc(sizeof(struct mt2s_ref));
-			ref->source = s;
-			ref->next = refs;
-			refs = ref;
-		}
-	}
-	pthread_mutex_unlock(&mt2s_instances_lock);
-
+	struct mt2s_ref *refs = mt2s_instance_refs();
 	while (refs) {
 		struct mt2s_ref *next = refs->next;
 		mt2s_context_t *context = obs_obj_get_data(refs->source);
@@ -606,6 +616,150 @@ static void mt2s_settle(obs_source_t *x)
 		obs_source_set_audio_mixers(x, xm | give);
 }
 
+// --- every scene ---
+// libobs mixes only the sources of the shown scene, so an instance works only while that scene holds it.
+// An instance in a scene is added once to every other scene of the main canvas, and each instance added
+// that way to every scene added afterwards. Removing it from a scene later leaves that scene without it,
+// and scenes a scene collection loads keep their items as saved. UI thread only.
+
+// settings key set once an instance has been added to every scene
+#define MT2S_EVERY_SCENE_KEY "mt2s_every_scene"
+
+struct mt2s_find_args {
+	obs_source_t *source;
+	bool found;
+};
+
+static bool mt2s_find_in_items(obs_scene_t *scene, obs_sceneitem_t *item, void *param)
+{
+	UNUSED_PARAMETER(scene);
+	struct mt2s_find_args *a = param;
+	if (obs_sceneitem_get_source(item) == a->source)
+		a->found = true;
+	else if (obs_sceneitem_is_group(item))
+		obs_scene_enum_items(obs_sceneitem_group_get_scene(item), mt2s_find_in_items, param);
+	return !a->found;
+}
+
+// whether the scene, or a group in it, holds the source
+static bool mt2s_scene_holds(obs_scene_t *scene, obs_source_t *source)
+{
+	struct mt2s_find_args a = {source, false};
+	obs_scene_enum_items(scene, mt2s_find_in_items, &a);
+	return a.found;
+}
+
+static bool mt2s_scene_ref_enum(void *param, obs_source_t *scene_source)
+{
+	mt2s_ref_push(param, obs_source_get_ref(scene_source));
+	return true;
+}
+
+// Adds the source to every scene of the main canvas that does not hold it, when one of them already holds
+// it. Returns whether one did.
+static bool mt2s_add_to_scenes(obs_source_t *source)
+{
+	struct mt2s_ref *scenes = NULL;
+	obs_enum_scenes(mt2s_scene_ref_enum, &scenes);
+
+	bool held = false;
+	for (struct mt2s_ref *s = scenes; s && !held; s = s->next) {
+		obs_scene_t *scene = obs_scene_from_source(s->source);
+		held = scene && mt2s_scene_holds(scene, source);
+	}
+
+	while (scenes) {
+		struct mt2s_ref *next = scenes->next;
+		obs_scene_t *scene = obs_scene_from_source(scenes->source);
+		if (held && scene && !mt2s_scene_holds(scene, source))
+			obs_scene_add(scene, source);
+		obs_source_release(scenes->source);
+		bfree(scenes);
+		scenes = next;
+	}
+	return held;
+}
+
+// adds an instance that is in a scene to every scene, once
+static void mt2s_spread(mt2s_context_t *context)
+{
+	obs_data_t *settings = obs_source_get_settings(context->source);
+	if (settings && !obs_data_get_bool(settings, MT2S_EVERY_SCENE_KEY) && mt2s_add_to_scenes(context->source))
+		obs_data_set_bool(settings, MT2S_EVERY_SCENE_KEY, true);
+	obs_data_release(settings);
+}
+
+// scenes a scene collection loaded; they keep their items as saved
+static pthread_mutex_t mt2s_loaded_scenes_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct mt2s_instance *mt2s_loaded_scenes;
+
+static void mt2s_loaded_scene_add(obs_source_t *scene)
+{
+	struct mt2s_instance *l = bzalloc(sizeof(struct mt2s_instance));
+	l->weak = obs_source_get_weak_source(scene);
+	pthread_mutex_lock(&mt2s_loaded_scenes_lock);
+	l->next = mt2s_loaded_scenes;
+	mt2s_loaded_scenes = l;
+	pthread_mutex_unlock(&mt2s_loaded_scenes_lock);
+}
+
+// whether the scene was loaded; the entry goes away
+static bool mt2s_loaded_scene_take(obs_source_t *scene)
+{
+	struct mt2s_instance *found = NULL;
+	pthread_mutex_lock(&mt2s_loaded_scenes_lock);
+	for (struct mt2s_instance **pp = &mt2s_loaded_scenes; *pp; pp = &(*pp)->next) {
+		if (obs_weak_source_references_source((*pp)->weak, scene)) {
+			found = *pp;
+			*pp = found->next;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&mt2s_loaded_scenes_lock);
+	if (found) {
+		obs_weak_source_release(found->weak);
+		bfree(found);
+	}
+	return found != NULL;
+}
+
+static void mt2s_loaded_scenes_clear(void)
+{
+	pthread_mutex_lock(&mt2s_loaded_scenes_lock);
+	struct mt2s_instance *l = mt2s_loaded_scenes;
+	mt2s_loaded_scenes = NULL;
+	pthread_mutex_unlock(&mt2s_loaded_scenes_lock);
+	while (l) {
+		struct mt2s_instance *next = l->next;
+		obs_weak_source_release(l->weak);
+		bfree(l);
+		l = next;
+	}
+}
+
+// adds every instance that was added to every scene to a scene the user added
+static void mt2s_fill_scene(obs_source_t *scene_source)
+{
+	if (mt2s_loaded_scene_take(scene_source))
+		return;
+
+	obs_scene_t *scene = obs_scene_from_source(scene_source);
+	if (!scene)
+		return;
+
+	struct mt2s_ref *refs = mt2s_instance_refs();
+	while (refs) {
+		struct mt2s_ref *next = refs->next;
+		obs_data_t *settings = obs_source_get_settings(refs->source);
+		if (obs_data_get_bool(settings, MT2S_EVERY_SCENE_KEY) && !mt2s_scene_holds(scene, refs->source))
+			obs_scene_add(scene, refs->source);
+		obs_data_release(settings);
+		obs_source_release(refs->source);
+		bfree(refs);
+		refs = next;
+	}
+}
+
 // --- work deferred to the UI thread ---
 // Signal callbacks and update only note what changed. The sweeps, give-backs, source lookups and
 // enumerations that follow run as UI tasks, outside the signal that queued them. They take the
@@ -617,6 +771,8 @@ enum mt2s_job_kind {
 	MT2S_JOB_SWEEP,     // sweep target for self
 	MT2S_JOB_RECONCILE, // apply self's input and output tracks
 	MT2S_JOB_SETTLE,    // settle the bits waiting for target
+	MT2S_JOB_SPREAD,    // add self to every scene, once
+	MT2S_JOB_FILL,      // add the instances in every scene to target, a scene the user added
 };
 
 struct mt2s_job {
@@ -644,6 +800,14 @@ static void mt2s_job_run(void *param)
 	case MT2S_JOB_SETTLE:
 		if (x)
 			mt2s_settle(x);
+		break;
+	case MT2S_JOB_SPREAD:
+		if (context)
+			mt2s_spread(context);
+		break;
+	case MT2S_JOB_FILL:
+		if (x)
+			mt2s_fill_scene(x);
 		break;
 	}
 	obs_source_release(x);
@@ -776,6 +940,24 @@ static void mt2s_on_module_source(void *param, calldata_t *cd)
 		mt2s_defer(MT2S_JOB_SETTLE, NULL, x, false);
 }
 
+// a scene was created: once its creator is done, the instances in every scene are added to it unless it was loaded
+static void mt2s_on_module_scene_create(void *param, calldata_t *cd)
+{
+	UNUSED_PARAMETER(param);
+	obs_source_t *x = calldata_ptr(cd, "source");
+	if (x && obs_source_is_scene(x))
+		mt2s_defer(MT2S_JOB_FILL, NULL, x, false);
+}
+
+// a scene was loaded from a scene collection: it keeps its items as saved
+static void mt2s_on_module_scene_load(void *param, calldata_t *cd)
+{
+	UNUSED_PARAMETER(param);
+	obs_source_t *x = calldata_ptr(cd, "source");
+	if (x && obs_source_is_scene(x))
+		mt2s_loaded_scene_add(x);
+}
+
 static volatile long mt2s_module_signals;
 
 static void mt2s_connect_module_signals(void)
@@ -787,6 +969,8 @@ static void mt2s_connect_module_signals(void)
 	if (gsh) {
 		signal_handler_connect(gsh, "source_create", mt2s_on_module_source, NULL);
 		signal_handler_connect(gsh, "source_load", mt2s_on_module_source, NULL);
+		signal_handler_connect(gsh, "source_create", mt2s_on_module_scene_create, NULL);
+		signal_handler_connect(gsh, "source_load", mt2s_on_module_scene_load, NULL);
 	}
 }
 
@@ -1053,6 +1237,9 @@ void *mt2s_create(obs_data_t *settings, obs_source_t *source)
 
 		mt2s_instance_add(context->weak);
 		mt2s_connect_module_signals();
+
+		// once the creator has put the instance in a scene, add it to every scene
+		mt2s_defer(MT2S_JOB_SPREAD, source, NULL, false);
 	}
 
 	return context;
@@ -1193,8 +1380,11 @@ void obs_module_unload(void)
 		if (gsh) {
 			signal_handler_disconnect(gsh, "source_create", mt2s_on_module_source, NULL);
 			signal_handler_disconnect(gsh, "source_load", mt2s_on_module_source, NULL);
+			signal_handler_disconnect(gsh, "source_create", mt2s_on_module_scene_create, NULL);
+			signal_handler_disconnect(gsh, "source_load", mt2s_on_module_scene_load, NULL);
 		}
 	}
+	mt2s_loaded_scenes_clear();
 	mt2s_disconnect_frontend();
 	mt2s_pending_reset(true);
 

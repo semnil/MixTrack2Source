@@ -30,6 +30,10 @@ flowchart TB
 - Select an input mix track to create an audio source
 - The audio source uses the selected mix track as input and allows various filters to be applied
 - Allows selection of mix tracks as output, excluding the mix track selected as input
+- OBS outputs only the audio of the sources in the shown scene, so when the audio source is added to a scene, it is also added to every other scene, and to the scenes added later
+  - Removing it from a scene leaves that scene without it; while such a scene is shown, the audio source does not work
+  - Scenes loaded from a scene collection keep their sources as saved
+  - An audio source saved by a version without this is added to every scene the first time it is loaded
 - Removes the audio source's output tracks from the other audio sources that send audio to its input track, so their audio is not output twice (other Mix Track sources are left alone)
   - The removed tracks are turned back on when the audio source is removed or its input or output tracks change, unless another Mix Track source still needs them removed
   - A track the user turns back on is left as it is from then on
