@@ -22,5 +22,20 @@ DirExistsWarning=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 
+[CustomMessages]
+english.LegacyLocation=Also install for OBS Studio 31.1.1 to 32 (legacy plugin location)
+japanese.LegacyLocation=OBS Studio 31.1.1〜32 でも使えるようにする (旧方式の場所にも置く)
+
+[Tasks]
+Name: "legacylocation"; Description: "{cm:LegacyLocation}"
+
+[InstallDelete]
+Type: files; Name: "{app}\bin\64bit\{#MyAppName}.dll"
+Type: files; Name: "{app}\bin\64bit\{#MyAppName}.pdb"
+Type: dirifempty; Name: "{app}\bin\64bit"
+Type: dirifempty; Name: "{app}\bin"
+
 [Files]
 Source: "..\release\Package\{#MyAppName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\release\Package\{#MyAppName}\{#MyAppName}.dll"; DestDir: "{app}\bin\64bit"; Tasks: legacylocation; Flags: ignoreversion
+Source: "..\release\Package\{#MyAppName}\{#MyAppName}.pdb"; DestDir: "{app}\bin\64bit"; Tasks: legacylocation; Flags: ignoreversion skipifsourcedoesntexist
