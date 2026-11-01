@@ -67,7 +67,7 @@ OBS Studio 31.1.1〜32 で使う場合は、`mix-track-to-source` フォルダ�
 sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
 ```
 
-OBS Studio 33 以降が必要。
+パッケージは、OBS Studio 33 のプラグインの場所に加えて、OBS Studio 31.1.1〜32 でも読み込めるように、旧方式の場所にもプラグインを置く。
 
 
 ## 使い方

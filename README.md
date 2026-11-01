@@ -67,7 +67,7 @@ Run the following command:
 sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
 ```
 
-OBS Studio 33 or later is required.
+The package places the plugin in the plugin location of OBS Studio 33 and also in the legacy plugin location, so that OBS Studio 31.1.1 to 32 can load it.
 
 
 ## Usage
