@@ -68,7 +68,7 @@ inline std::optional<ReleaseAsset> find_asset(const QJsonArray &assets, const QS
 {
 	static const QRegularExpression sha256_pattern(QRegularExpression::anchoredPattern("sha256:([0-9a-f]{64})"));
 
-	for (const QJsonValue &value : assets) {
+	for (const QJsonValue value : assets) {
 		const QJsonObject asset = value.toObject();
 		if (!asset.value("name").toString().endsWith(suffix))
 			continue;
