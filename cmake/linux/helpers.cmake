@@ -4,6 +4,9 @@ include_guard(GLOBAL)
 
 include(helpers_common)
 
+# OBS Studio 33 loads the copy in obs-modules/plugins, and OBS Studio 32 and earlier load the copy in obs-plugins
+set(_plugin_install_dirs obs-modules/plugins obs-plugins)
+
 # set_target_properties_plugin: Set target properties for use in obs-studio
 function(set_target_properties_plugin target)
   set(options "")
@@ -23,11 +26,13 @@ function(set_target_properties_plugin target)
     PROPERTIES VERSION ${PLUGIN_VERSION} SOVERSION ${PLUGIN_VERSION_MAJOR} PREFIX ""
   )
 
-  install(
-    TARGETS ${target}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/obs-modules/plugins
-  )
+  foreach(plugin_dir IN LISTS _plugin_install_dirs)
+    install(
+      TARGETS ${target}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/${plugin_dir}
+    )
+  endforeach()
 
   if(TARGET plugin-support)
     target_link_libraries(${target} PRIVATE plugin-support)
@@ -69,11 +74,13 @@ function(target_install_resources target)
       source_group("Resources/${relative_path}" FILES "${data_file}")
     endforeach()
 
-    install(
-      DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/"
-      DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/obs/obs-modules/plugins/${target}
-      USE_SOURCE_PERMISSIONS
-    )
+    foreach(plugin_dir IN LISTS _plugin_install_dirs)
+      install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/"
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/obs/${plugin_dir}/${target}
+        USE_SOURCE_PERMISSIONS
+      )
+    endforeach()
 
     add_custom_command(
       TARGET ${target}
@@ -92,7 +99,9 @@ endfunction()
 function(target_add_resource target resource)
   message(DEBUG "Add resource '${resource}' to target ${target} at destination '${target_destination}'...")
 
-  install(FILES "${resource}" DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/obs/obs-modules/plugins/${target})
+  foreach(plugin_dir IN LISTS _plugin_install_dirs)
+    install(FILES "${resource}" DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/obs/${plugin_dir}/${target})
+  endforeach()
 
   add_custom_command(
     TARGET ${target}
