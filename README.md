@@ -37,15 +37,21 @@ flowchart TB
 
 Please download the archive file from the [Releases](https://github.com/semnil/MixTrack2Source/releases) page.
 
+OBS Studio 31.1.1 or later is required. The plugin is installed in the plugin location used since OBS Studio 33.
+
 ### Windows
 
 Run the `mix-track-to-source-<version>-windows-x64-Installer.exe` file to install it.
+By default, the installer also places the plugin in the legacy plugin location so that OBS Studio 31.1.1 to 32 can load it.
+If you use only OBS Studio 33 or later, clear **Also install for OBS Studio 31.1.1 to 32 (legacy plugin location)** in the installer.
 
 Alternatively, extract the archive file and place the `mix-track-to-source` folder in the following location:
 
 ```
 C:\ProgramData\obs-studio\plugins
 ```
+
+To use it with OBS Studio 31.1.1 to 32, also copy `mix-track-to-source.dll` into a `bin\64bit` folder inside the `mix-track-to-source` folder.
 
 
 ### macOS
@@ -60,6 +66,8 @@ Run the following command:
 ```
 sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
 ```
+
+OBS Studio 33 or later is required.
 
 
 ## Usage
