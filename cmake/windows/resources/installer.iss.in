@@ -22,5 +22,11 @@ DirExistsWarning=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 
+[InstallDelete]
+Type: files; Name: "{app}\bin\64bit\{#MyAppName}.dll"
+Type: files; Name: "{app}\bin\64bit\{#MyAppName}.pdb"
+Type: dirifempty; Name: "{app}\bin\64bit"
+Type: dirifempty; Name: "{app}\bin"
+
 [Files]
 Source: "..\release\Package\{#MyAppName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
