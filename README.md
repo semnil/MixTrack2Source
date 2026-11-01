@@ -85,6 +85,16 @@ After applying a limiter to the input on Track 1, the settings for outputting th
 - Select Track 6 in Settings > Output > Streaming > Streaming Settings > Audio Track
 
 
+## Update check
+
+- At startup, the plugin asks GitHub for the latest release
+  - To stop this, turn off **Tools > Mix Track to Source: Check for Updates at Startup**
+- When a newer version is available, it asks whether to download it
+  - The file is saved to the Downloads folder and is kept only when its SHA-256 matches the value that GitHub shows for the file
+- After the download, on Windows and macOS it asks whether to start the installer
+  - On Ubuntu it shows where the file is saved. Install it with `sudo dpkg -i`
+
+
 ## Information for development
 
 Please refer to the template repository information.  
