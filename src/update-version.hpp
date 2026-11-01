@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -74,6 +75,12 @@ inline std::optional<ReleaseAsset> find_asset(const QJsonArray &assets, const QS
 		return ReleaseAsset{url, digest.captured(1)};
 	}
 	return std::nullopt;
+}
+
+// Returns preferred when it names an existing directory, and fallback otherwise
+inline QString existing_dir_or(const QString &preferred, const QString &fallback)
+{
+	return !preferred.isEmpty() && QFileInfo(preferred).isDir() ? preferred : fallback;
 }
 
 } // namespace mt2s

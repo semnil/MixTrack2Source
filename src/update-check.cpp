@@ -345,9 +345,9 @@ void start_check()
 	if (!ASSET_SUFFIX || receiver)
 		return;
 
-	QString download_dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-	if (download_dir.isEmpty())
-		download_dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+	const QString download_dir =
+		mt2s::existing_dir_or(QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
+				      QStandardPaths::writableLocation(QStandardPaths::TempLocation));
 
 	receiver = new QObject();
 	start_worker([download_dir]() { check_for_update(download_dir); });
