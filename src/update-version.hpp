@@ -18,6 +18,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
+#include <QCryptographicHash>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -28,6 +30,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <array>
 #include <optional>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace mt2s {
 
@@ -81,6 +87,32 @@ inline std::optional<ReleaseAsset> find_asset(const QJsonArray &assets, const QS
 inline QString existing_dir_or(const QString &preferred, const QString &fallback)
 {
 	return !preferred.isEmpty() && QFileInfo(preferred).isDir() ? preferred : fallback;
+}
+
+// Returns the lowercase hex sha256 of the file, or an empty string when it cannot be read
+inline QString file_sha256(const QString &path)
+{
+	QFile file(path);
+	if (!file.open(QIODevice::ReadOnly))
+		return {};
+
+	QCryptographicHash hash(QCryptographicHash::Sha256);
+	if (!hash.addData(&file))
+		return {};
+	return QString::fromLatin1(hash.result().toHex());
+}
+
+// True for a regular file, not a symbolic link, with the given sha256; outside Windows the current user must own it
+inline bool is_reusable_download(const QString &path, const QString &sha256)
+{
+	const QFileInfo info(path);
+	if (!info.isFile() || info.isSymLink())
+		return false;
+#ifndef _WIN32
+	if (info.ownerId() != getuid())
+		return false;
+#endif
+	return file_sha256(path) == sha256;
 }
 
 } // namespace mt2s

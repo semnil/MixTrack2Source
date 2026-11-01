@@ -30,7 +30,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QCryptographicHash>
 #include <QDesktopServices>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QMessageBox>
@@ -198,18 +197,6 @@ bool fetch(const QString &url, const char *accept, curl_write_callback write, vo
 	return true;
 }
 
-QString file_sha256(const QString &path)
-{
-	QFile file(path);
-	if (!file.open(QIODevice::ReadOnly))
-		return {};
-
-	QCryptographicHash hash(QCryptographicHash::Sha256);
-	if (!hash.addData(&file))
-		return {};
-	return QString::fromLatin1(hash.result().toHex());
-}
-
 template<typename F> void run_on_ui(F function)
 {
 	QMetaObject::invokeMethod(receiver, std::move(function), Qt::QueuedConnection);
@@ -337,7 +324,7 @@ void check_for_update(const QString &download_dir)
 	}
 
 	const QString path = QDir(download_dir).filePath(QString("%1-%2%3").arg(PLUGIN_NAME, tag, ASSET_SUFFIX));
-	if (QFileInfo::exists(path) && file_sha256(path) == asset->sha256) {
+	if (mt2s::is_reusable_download(path, asset->sha256)) {
 		obs_log(LOG_INFO, "update %s already downloaded as %s", qUtf8Printable(tag),
 			qUtf8Printable(QFileInfo(path).fileName()));
 		run_on_ui([tag, path]() { show_downloaded(tag, path); });
