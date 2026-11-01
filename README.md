@@ -108,6 +108,11 @@ After applying a limiter to the input on Track 1, the settings for outputting th
 Please refer to the template repository information.  
 https://github.com/obsproject/obs-plugintemplate
 
+### OBS forum resource
+
+The content of the [resource page on the OBS forum](https://obsproject.com/forum/resources/mix-track-to-source.2419/) is kept in [docs/forum-listing.md](docs/forum-listing.md).
+Its description copies the first section, "Install", and "Usage" of this README for the released version. When a release changes those sections, update [docs/forum-listing.md](docs/forum-listing.md), [docs/forum-listing.ja.md](docs/forum-listing.ja.md), and the forum page after the release is published.
+
 ### Release
 
 The version is defined only by `"version"` in `buildspec.json`, and the release tag is that version as it is (for example `1.0.3`, with no leading `v`).
