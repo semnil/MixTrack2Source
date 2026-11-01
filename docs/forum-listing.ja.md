@@ -5,7 +5,7 @@
 OBS フォーラムの [Mix Track to Source](https://obsproject.com/forum/resources/mix-track-to-source.2419/) リソースページの元になる内容の日本語訳。
 フォーラムには英語版 ([forum-listing.md](forum-listing.md)) を掲載する。
 
-- 説明文の「Mix Track to Source」「インストール」「使い方」の節は [README.ja.md](../README.ja.md) の写し。README の該当の節を変更したら、同じ変更でこのファイルも更新する
+- 説明文の「Mix Track to Source」「インストール」「使い方」の節は、リリース済みの版についての [README.ja.md](../README.ja.md) の写し。リリースで README の該当の節が変わったら、リリースを公開した後にこのファイルとフォーラムのページを更新する
 - フォーラムでは、構成図は Mermaid のブロックを PNG 画像にしたものを表示している
 - フォーラムでは、スクリーンショットは [img](../img) のファイルを添付して表示している
 

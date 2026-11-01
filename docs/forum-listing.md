@@ -5,7 +5,7 @@
 This file is the source of the [Mix Track to Source](https://obsproject.com/forum/resources/mix-track-to-source.2419/) resource page on the OBS forum.
 Change this file first, then enter the same content in the forum editor.
 
-- The "Mix Track to Source", "Install", and "Usage" sections of the description are copied from [README.md](../README.md). When those sections of README.md change, update this file in the same change
+- The "Mix Track to Source", "Install", and "Usage" sections of the description are copied from [README.md](../README.md) for the released version. When a release changes those sections of README.md, update this file and the forum page after the release is published
 - The forum shows the diagram as a PNG image rendered from the Mermaid block
 - The forum shows the screenshots as attachments of the files in [img](../img)
 

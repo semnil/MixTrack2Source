@@ -93,7 +93,7 @@ https://github.com/obsproject/obs-plugintemplate
 ### OBS forum resource
 
 The content of the [resource page on the OBS forum](https://obsproject.com/forum/resources/mix-track-to-source.2419/) is kept in [docs/forum-listing.md](docs/forum-listing.md).
-Its description copies the first section, "Install", and "Usage" of this README. When those sections change, update [docs/forum-listing.md](docs/forum-listing.md) and [docs/forum-listing.ja.md](docs/forum-listing.ja.md) in the same change.
+Its description copies the first section, "Install", and "Usage" of this README for the released version. When a release changes those sections, update [docs/forum-listing.md](docs/forum-listing.md), [docs/forum-listing.ja.md](docs/forum-listing.ja.md), and the forum page after the release is published.
 
 ### Release
 
