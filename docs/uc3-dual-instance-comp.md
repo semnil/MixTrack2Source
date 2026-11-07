@@ -12,15 +12,15 @@ sequenceDiagram
     participant M   as OBS Mixer
     participant MA  as MT Source A
     participant MB  as MT Source B
-    participant ST  as Live Stream<br/>(Track 6)
-    participant RC  as Recording File<br/>(Track 5)
+    participant ST  as Live Stream<br>(Track 6)
+    participant RC  as Recording File<br>(Track 5)
 
     M  ->> MA : input: Track 1
     M  ->> MB : input: Track 1
     Note over MA,MB : two instances read the same track in parallel
 
     activate MA
-    Note over MA : Heavy Compressor<br/>+ Loudness
+    Note over MA : Heavy Compressor<br>+ Loudness
     MA ->> ST : 
     deactivate MA
 

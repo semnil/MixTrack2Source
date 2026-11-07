@@ -24,7 +24,7 @@ sequenceDiagram
     participant MA  as MT Source A (dry)
     participant MB  as MT Source B (wet)
     participant BG  as BGM Source
-    participant ST  as Live Stream<br/>(Track 6)
+    participant ST  as Live Stream<br>(Track 6)
 
     M  ->> MA : input: Track 2 (mic)
     M  ->> MB : input: Track 2 (mic)
@@ -33,14 +33,14 @@ sequenceDiagram
     MA ->> ST : no filter (dry signal)
 
     activate MB
-    Note over MB : Reverb VST<br/>(wet 100% / dry 0%)
+    Note over MB : Reverb VST<br>(wet 100% / dry 0%)
     MB ->> ST : wet signal
     deactivate MB
 
     Note over ST : dry and wet signals are summed
 
     activate BG
-    Note over BG : Sync Offset<br/>(Advanced Audio Properties)
+    Note over BG : Sync Offset<br>(Advanced Audio Properties)
     BG ->> ST : BGM (Track 3 → Track 6 direct)
     deactivate BG
 ```

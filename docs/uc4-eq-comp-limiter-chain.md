@@ -12,18 +12,18 @@ can use either version in post-production.
 sequenceDiagram
     participant M   as OBS Mixer
     participant MT  as Mix Track Source
-    participant RC  as Recording File<br/>(Track 4, Track 5)
+    participant RC  as Recording File<br>(Track 4, Track 5)
 
     M  -->> RC : other sources flow to recording via Track 4 (raw)
     M  ->>  MT : input: Track 4 (game audio + SFX)
     activate MT
-    Note over MT : EQ<br/>(VST or built-in)
+    Note over MT : EQ<br>(VST or built-in)
     deactivate MT
     activate MT
-    Note over MT : Compressor<br/>(VST or built-in)
+    Note over MT : Compressor<br>(VST or built-in)
     deactivate MT
     activate MT
-    Note over MT : Limiter<br/>(built-in)
+    Note over MT : Limiter<br>(built-in)
     MT ->> RC : processed output
     deactivate MT
 ```

@@ -11,12 +11,12 @@ microphone audio on a separate recording track for post-production.
 sequenceDiagram
     participant M   as OBS Mixer
     participant MT  as Mix Track Source
-    participant ST  as Live Stream<br/>(Track 6)
-    participant RC  as Recording File<br/>(Track 5)
+    participant ST  as Live Stream<br>(Track 6)
+    participant RC  as Recording File<br>(Track 5)
 
     M   ->> MT  : input: Track 2 (mic only)
     activate MT
-    Note over MT : Noise Removal<br/>(VST filter)
+    Note over MT : Noise Removal<br>(VST filter)
     MT  ->> ST  : 
     deactivate MT
 
