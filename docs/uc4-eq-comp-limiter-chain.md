@@ -54,6 +54,9 @@ Filters are applied top-to-bottom in the OBS Filters dialog.
 - Mix Track Source turns Track 5 off by itself on the game audio source, which sends audio to Track
   4 (see [README.md](../README.md) for when it does). The other sources do not send audio to Track
   4, so turn their Track 5 off by hand.
+- A new source starts with every track on, so it sends audio to Track 4 at first and Mix Track
+  Source turns its Track 5 off. After you turn its Track 4 off, Mix Track Source turns its Track 5
+  back on the next time it checks. Turn Track 5 off by hand again then, and it stays off.
 - Placing the limiter last ensures clipping cannot occur regardless of how aggressively the EQ or
   compressor is set.
 - Track 4 (raw) is suited for offline re-processing; Track 5 (processed) is ready for immediate

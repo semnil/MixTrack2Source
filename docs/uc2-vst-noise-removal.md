@@ -41,6 +41,9 @@ sequenceDiagram
 - Mix Track Source turns Track 6 off by itself on the microphone source, which sends audio to Track
   2 (see [README.md](../README.md) for when it does). The other sources do not send audio to Track
   2, so turn their Track 6 off by hand.
+- A new source starts with every track on, so it sends audio to Track 2 at first and Mix Track
+  Source turns its Track 6 off. After you turn its Track 2 off, Mix Track Source turns its Track 6
+  back on the next time it checks. Turn Track 6 off by hand again then, and it stays off.
 - OBS loads VST 2 plug-ins with its **VST 2.x Plug-in** filter.
 - Recording Track 5 retains the raw microphone signal, allowing noise reduction to be applied or
   adjusted offline in a DAW later.
