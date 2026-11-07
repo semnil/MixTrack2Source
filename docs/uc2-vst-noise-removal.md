@@ -38,8 +38,8 @@ sequenceDiagram
 
 ## Notes
 
-- OBS loads VST 2 plug-ins natively; VST 3 support requires OBS 30 or later.
+- OBS loads VST 2 plug-ins with its **VST 2.x Plug-in** filter.
 - Recording Track 5 retains the raw microphone signal, allowing noise reduction to be applied or
   adjusted offline in a DAW later.
-- If the VST introduces noticeable latency, set a **Sync Offset** on the video capture source in
-  Advanced Audio Properties to compensate.
+- If the VST introduces noticeable latency, add a **Render Delay** filter to the video source and
+  set it to the VST's processing latency, so that the video stays in sync with the processed audio.

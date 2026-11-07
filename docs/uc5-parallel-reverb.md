@@ -40,7 +40,7 @@ sequenceDiagram
     Note over ST : dry and wet signals are summed
 
     activate BG
-    Note over BG : Delay Compensation<br/>(built-in filter)
+    Note over BG : Sync Offset<br/>(Advanced Audio Properties)
     BG ->> ST : BGM (Track 3 → Track 6 direct)
     deactivate BG
 ```
@@ -58,24 +58,21 @@ unaffected in either state.
 
 ## BGM Delay Compensation
 
-A reverb VST introduces processing latency of a few to several tens of milliseconds due to its
-internal buffering. MT Source A (dry) and MT Source B (wet) share the same input bus and remain
-in sync with each other, but the BGM source bypasses the reverb entirely and therefore arrives
-at the stream earlier by the VST's processing delay. Without compensation, the vocal onset will
-sound late relative to the BGM.
+The vocal reaches the stream only through MT Source A and MT Source B, which output it later than
+a source routed directly to Track 6, by the buffering of Mix Track Source (at least 1,024
+samples, about 21 ms at 48 kHz). MT Source B adds the processing latency of the reverb VST on
+top of that. The BGM source is routed directly, so without compensation the vocal onset sounds
+late relative to the BGM.
 
-Add a built-in **Delay** filter to the BGM source and set the delay value (ms) to match the
-VST's processing latency.
+Set the **Sync Offset** of the BGM source in Advanced Audio Properties to the offset between the
+dry vocal and the BGM.
 
-**Measuring the delay:**
+**Measuring the offset:**
 
 1. Feed a single test impulse (e.g. a click) through the microphone.
 2. Monitor or record the output and observe the timing offset between the dry vocal signal and
    the BGM.
-3. Set that difference (ms) as the delay value on the BGM source's Delay filter.
-
-Some reverb plug-ins publish their processing latency in the documentation — consult the
-plug-in's manual as a starting point before fine-tuning by ear.
+3. Set that difference (ms) as the Sync Offset of the BGM source.
 
 ## OBS Settings Checklist
 
@@ -86,7 +83,7 @@ plug-in's manual as a starting point before fine-tuning by ear.
 | MT Source B | Input = **Track 2** |
 | MT Source A › Filters | None |
 | MT Source B › Filters | Add a **Reverb VST** → set dry = **0%**, wet = **100%** |
-| BGM Source › Filters | Add **Delay** → set delay (ms) = VST processing latency |
+| Advanced Audio Properties (BGM source) | Sync Offset (ms) = measured offset between the dry vocal and the BGM |
 | Advanced Audio Properties (MT Source A) | Track 2 **☐**, Track 6 **☑** |
 | Advanced Audio Properties (MT Source B) | Track 2 **☐**, Track 6 **☑** |
 | Advanced Audio Properties (microphone source) | Track 2 **☑**, Track 6 **☐** |
