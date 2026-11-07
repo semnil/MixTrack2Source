@@ -118,6 +118,11 @@ sudo dpkg -i mix-track-to-source-<version>-x86_64-linux-gnu.deb
 テンプレートリポジトリの情報を参照する。  
 https://github.com/obsproject/obs-plugintemplate
 
+### OBS フォーラムのリソース
+
+[OBS フォーラムのリソースページ](https://obsproject.com/forum/resources/mix-track-to-source.2419/)の説明文は、リリース済みの版についての README.md の最初の節、「Install」、「Usage」に、[docs/forum-listing.md](docs/forum-listing.md) の節を続けたもの。ページの他の項目も docs/forum-listing.md に置く。
+リリースで README のこれらの節が変わったら、リリースを公開した後にフォーラムのページを更新する。
+
 ### リリース
 
 バージョンの定義元は `buildspec.json` の `"version"` だけで、リリースタグはそのバージョンそのもの (例: `1.0.3`。先頭に `v` は付けない)。
