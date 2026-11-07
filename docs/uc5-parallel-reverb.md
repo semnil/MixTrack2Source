@@ -95,6 +95,9 @@ dry vocal and the BGM.
 
 ## Notes
 
+- MT Source A and MT Source B turn Track 6 off by themselves on the microphone source, which sends
+  audio to Track 2 (see [README.md](../README.md) for when it does). The BGM source does not send
+  audio to Track 2, so its Track 6 stays on. Turn Track 6 off by hand on the other sources.
 - Enabling Track 6 directly on the BGM source routes it to the stream without passing through
   any reverb processing, keeping the backing track clean.
 - The dry/wet balance is controlled independently by each source's volume fader. Set the wet

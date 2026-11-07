@@ -36,6 +36,9 @@ sequenceDiagram
 
 ## Notes
 
+- Mix Track Source turns Track 6 off by itself on the other sources that send audio to Track 1 (see
+  [README.md](../README.md) for when it does), so the Track 6 setting of those sources in the
+  checklist needs no manual step.
 - Only the stream track is limited, so loudness characteristics for the recording and the stream
   can be managed independently.
 - Minimum latency introduced: **1,024 samples** (~21 ms at 48 kHz). Enable

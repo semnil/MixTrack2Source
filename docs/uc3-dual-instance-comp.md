@@ -47,6 +47,9 @@ sequenceDiagram
 
 ## Notes
 
+- MT Source A and MT Source B turn Track 6 and Track 5 off by themselves on the other sources that
+  send audio to Track 1 (see [README.md](../README.md) for when it does), so the Track 5 and Track
+  6 settings of those sources in the checklist need no manual step.
 - To keep an unprocessed archive, also enable Track 1 in the recording output and confirm that
   other sources still have Track 1 output enabled.
 - CPU overhead scales linearly with the number of instances; two lightweight filter chains add
