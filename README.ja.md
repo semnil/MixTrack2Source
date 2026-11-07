@@ -92,8 +92,8 @@ https://github.com/obsproject/obs-plugintemplate
 
 ### OBS フォーラムのリソース
 
-[OBS フォーラムのリソースページ](https://obsproject.com/forum/resources/mix-track-to-source.2419/)の掲載内容は [docs/forum-listing.md](docs/forum-listing.md) で管理する。
-その説明文は、リリース済みの版についての、この README の最初の節、「インストール」、「使い方」の写し。リリースでこれらの節が変わったら、リリースを公開した後に [docs/forum-listing.md](docs/forum-listing.md)、[docs/forum-listing.ja.md](docs/forum-listing.ja.md)、フォーラムのページを更新する。
+[OBS フォーラムのリソースページ](https://obsproject.com/forum/resources/mix-track-to-source.2419/)の説明文は、リリース済みの版についての README.md の最初の節、「Install」、「Usage」に、[docs/forum-listing.md](docs/forum-listing.md) の節を続けたもの。ページの他の項目も docs/forum-listing.md に置く。
+リリースで README のこれらの節が変わったら、リリースを公開した後にフォーラムのページを更新する。
 
 ### リリース
 
