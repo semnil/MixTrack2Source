@@ -32,7 +32,7 @@ sequenceDiagram
 | VST plug-in UI | Capture a noise profile and enable noise-reduction mode |
 | Advanced Audio Properties (Mix Track Source) | Track 2 **☐**, Track 6 **☑** |
 | Advanced Audio Properties (microphone source) | Track 2 **☑**, Track 5 **☑** |
-| Advanced Audio Properties (all other sources) | Track 2 **☐**, Track 6 **☐** |
+| Advanced Audio Properties (all other sources) | Track 2 **☐**, Track 5 **☐**, Track 6 **☐** |
 | Settings › Output › Streaming | Audio Track = **6** |
 | Settings › Output › Recording | Track 5 **☑** |
 

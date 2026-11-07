@@ -87,7 +87,7 @@ dry vocal and the BGM.
 | Advanced Audio Properties (MT Source A) | Track 2 **☐**, Track 6 **☑** |
 | Advanced Audio Properties (MT Source B) | Track 2 **☐**, Track 6 **☑** |
 | Advanced Audio Properties (microphone source) | Track 2 **☑**, Track 6 **☐** |
-| Advanced Audio Properties (BGM source) | Track 3 **☑**, Track 6 **☑** |
+| Advanced Audio Properties (BGM source) | Track 2 **☐**, Track 3 **☑**, Track 6 **☑** |
 | Advanced Audio Properties (all other sources) | Track 2 **☐**, Track 3 **☐**, Track 6 **☐** |
 | MT Source A volume fader | Adjust dry vocal level |
 | MT Source B volume fader | Adjust wet level (reverb send amount) |
@@ -105,5 +105,5 @@ dry vocal and the BGM.
 - This use case requires a reverb VST that can output wet signal only (wet 100% / dry 0%).
   A plug-in that cannot isolate the wet output will double the dry signal and is not suitable.
 - To also capture the blend in the recording, enable Track 5 on MT Source A, MT Source B, and
-  the BGM source in Advanced Audio Properties, and enable Track 5 in Settings › Output ›
-  Recording.
+  the BGM source in Advanced Audio Properties, turn Track 5 off on all the other sources,
+  including the microphone source, and enable Track 5 in Settings › Output › Recording.
