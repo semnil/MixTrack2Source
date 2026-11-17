@@ -379,9 +379,10 @@ static void check_controls(obs_source_t *input, obs_source_t *router, obs_scene_
 		settle();
 		for (uint32_t mask = 0; mask < (1u << MAX_AUDIO_MIXES); mask++) {
 			obs_source_set_audio_mixers(router, mask);
-			settle();
+			drain_ui();
 			assert(obs_source_get_audio_mixers(router) == (mask & ~(1u << track)));
 		}
+		printf("CONTROL track=%d masks=%u passed\n", track, 1u << MAX_AUDIO_MIXES);
 	}
 	set_track(router, 0);
 	obs_source_set_audio_mixers(router, 2);
