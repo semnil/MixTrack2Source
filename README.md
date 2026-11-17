@@ -30,6 +30,8 @@ flowchart TB
 - Select an input mix track to create an audio source
 - The audio source uses the selected mix track as input and allows various filters to be applied
 - Allows selection of mix tracks as output, excluding the mix track selected as input
+- Silences Mix Track sources that form a feedback loop through other active Mix Track sources; audio resumes when the loop is broken
+  - If a source in the loop has multiple output tracks, all of its outputs are silenced
 - OBS outputs only the audio of the sources in the shown scene, so when the audio source is added to a scene, it is also added to every other scene, and to the scenes added later
   - Removing it from a scene leaves that scene without it; while such a scene is shown, the audio source does not work
   - Scenes loaded from a scene collection keep their sources as saved
@@ -39,6 +41,7 @@ flowchart TB
   - A track the user turns back on is left as it is from then on
   - The record of removed tracks is saved with the scene collection
 - Buffering causes a minimum delay of 1024 samples (21 ms at 48 kHz)
+  - This delay accumulates for each instance connected in series (2048 samples, about 43 ms at 48 kHz, for two instances)
   - If even greater delay is unacceptable, enable **Low Latency Audio Buffering Mode (For Decklink/NDI outputs)** in OBS Settings > Audio > Advanced
 
 ## Install

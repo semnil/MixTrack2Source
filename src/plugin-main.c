@@ -325,16 +325,18 @@ static void mt2s_return_bits(const char *uuid, uint32_t bits)
 
 struct mt2s_instance {
 	obs_weak_source_t *weak;
+	mt2s_context_t *context; // valid until the instance is removed under mt2s_instances_lock
 	struct mt2s_instance *next;
 };
 
 static pthread_mutex_t mt2s_instances_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct mt2s_instance *mt2s_instances;
 
-static void mt2s_instance_add(obs_weak_source_t *weak)
+static void mt2s_instance_add(mt2s_context_t *context)
 {
 	struct mt2s_instance *i = bzalloc(sizeof(struct mt2s_instance));
-	i->weak = weak;
+	i->weak = context->weak;
+	i->context = context;
 	pthread_mutex_lock(&mt2s_instances_lock);
 	i->next = mt2s_instances;
 	mt2s_instances = i;
@@ -1067,6 +1069,32 @@ static void mt2s_connect_frontend(void)
 	obs_log(LOG_INFO, "frontend events %s", mt2s_frontend_remove ? "connected" : "not available");
 }
 
+static bool mt2s_audio_cycle(mt2s_context_t *context, size_t track)
+{
+	uint32_t reach[MAX_AUDIO_MIXES] = {0};
+	// Silence this block if the instance list is changing; never wait on the audio thread.
+	if (pthread_mutex_trylock(&mt2s_instances_lock) != 0)
+		return true;
+	for (struct mt2s_instance *instance = mt2s_instances; instance; instance = instance->next) {
+		mt2s_context_t *peer = instance->context;
+		if (!obs_source_active(peer->source) || obs_source_removed(peer->source))
+			continue;
+		size_t input = atomic_load(&peer->mix_idx);
+		if (input < MAX_AUDIO_MIXES)
+			reach[input] |= (uint32_t)atomic_load(&peer->own_mixers) & MT2S_MIX_MASK;
+	}
+	pthread_mutex_unlock(&mt2s_instances_lock);
+	for (size_t via = 0; via < MAX_AUDIO_MIXES; via++)
+		for (size_t from = 0; from < MAX_AUDIO_MIXES; from++)
+			if (reach[from] & ((uint32_t)1 << via))
+				reach[from] |= reach[via];
+	uint32_t outputs = (uint32_t)atomic_load(&context->own_mixers);
+	for (size_t out = 0; out < MAX_AUDIO_MIXES; out++)
+		if ((outputs & ((uint32_t)1 << out)) && (reach[out] & ((uint32_t)1 << track)))
+			return true;
+	return false;
+}
+
 static void mt2s_callback(void *param, size_t mix_idx, struct audio_data *data)
 {
 	mt2s_context_t *context = (mt2s_context_t *)param;
@@ -1077,6 +1105,24 @@ static void mt2s_callback(void *param, size_t mix_idx, struct audio_data *data)
 
 	struct obs_audio_info oai;
 	if (obs_get_audio_info(&oai)) {
+		// Keep the input timeline moving while suppressing feedback through other instances.
+		if (mt2s_audio_cycle(context, mix_idx)) {
+			float silence[MAX_AUDIO_CHANNELS][AUDIO_OUTPUT_FRAMES] = {{0}};
+			struct obs_source_audio quiet = {.speakers = oai.speakers,
+							 .format = AUDIO_FORMAT_FLOAT_PLANAR,
+							 .samples_per_sec = oai.samples_per_sec};
+			for (size_t ch = 0; ch < MAX_AUDIO_CHANNELS; ch++)
+				quiet.data[ch] = (const uint8_t *)silence[ch];
+			for (uint32_t offset = 0; offset < data->frames;) {
+				uint32_t remaining = data->frames - offset;
+				quiet.frames = remaining < AUDIO_OUTPUT_FRAMES ? remaining : AUDIO_OUTPUT_FRAMES;
+				quiet.timestamp = data->timestamp + audio_frames_to_ns(oai.samples_per_sec, offset);
+				obs_source_output_audio(context->source, &quiet);
+				offset += quiet.frames;
+			}
+			return;
+		}
+
 		// bridge data from the mix track to the audio source
 		struct obs_source_audio output_audio = {.frames = data->frames,
 							.speakers = oai.speakers,
@@ -1235,7 +1281,7 @@ void *mt2s_create(obs_data_t *settings, obs_source_t *source)
 		context->routed_in = atomic_load(&context->mix_idx);
 		pthread_mutex_unlock(&context->lock);
 
-		mt2s_instance_add(context->weak);
+		mt2s_instance_add(context);
 		mt2s_connect_module_signals();
 
 		// once the creator has put the instance in a scene, add it to every scene
