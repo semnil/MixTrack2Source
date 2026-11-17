@@ -32,6 +32,7 @@ flowchart TB
 - Allows selection of mix tracks as output, excluding the mix track selected as input
 - Silences Mix Track sources that form a feedback loop through other active Mix Track sources; audio resumes when the loop is broken
   - If a source in the loop has multiple output tracks, all of its outputs are silenced
+  - Monitor-only sources do not send audio to mix tracks and are excluded from feedback paths
 - OBS outputs only the audio of the sources in the shown scene, so when the audio source is added to a scene, it is also added to every other scene, and to the scenes added later
   - Removing it from a scene leaves that scene without it; while such a scene is shown, the audio source does not work
   - Scenes loaded from a scene collection keep their sources as saved

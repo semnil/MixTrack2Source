@@ -19,7 +19,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = "single multi jitter stalled-source parallel switch chain cycle cycle-live cycle-three cycle-branch registry-busy enumeration-update hide mute filter offset input-switch scene-volume global global-first reverse shared-leaf sync-offset fade fade-power opaque opaque-changing late-source controls hybrid-switch hybrid-edge".split()
+CASES = "single multi jitter stalled-source parallel switch chain cycle cycle-live cycle-three cycle-branch monitor-only monitor-own monitor-live monitor-three monitor-branch registry-busy enumeration-update hide mute filter offset input-switch scene-volume global global-first reverse shared-leaf sync-offset fade fade-power opaque opaque-changing late-source controls hybrid-switch hybrid-edge".split()
 
 
 def main():

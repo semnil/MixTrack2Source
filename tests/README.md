@@ -25,6 +25,12 @@ produce silence at participating instances and resume after the loop is broken.
 The registry-contention case holds the instance list busy and verifies that audio
 callbacks keep delivering timestamped silence instead of waiting. The enumeration
 case changes the input track while OBS holds its source-list lock.
+Monitor-only cases check source capture callbacks and final track output, including
+switches back to monitoring with output, three-instance routes, and branched routes.
+An unavailable monitor device prevents speaker playback; physical monitoring is not tested.
+The `late-source` case delays one producer by 20 ms and uses 64 ms of fixed OBS
+buffering so its input timestamps can be checked strictly. Other cases use the
+default dynamic buffering. This is a test configuration, not a plugin setting.
 
 Notification arrival differences are reported separately. They have no upper
 acceptance limit in the routing regression test. To evaluate the unfulfilled

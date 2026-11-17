@@ -18,18 +18,26 @@ def check(directory, waveform, rate, limit_ms=None):
                            time=int(fields['timestamp']) + round(int(fields['frame']) * 1e9 / rate),
                            value=float(fields['value'])))
     sources = {name: [e for e in events if e['source'] == name]
-               for name in ('input-a', 'input-b', 'route-a', 'route-b')}
+               for name in ('input-a', 'input-b', 'route-a', 'route-b', 'route-c')}
     errors = []
     for name in ('input-a', 'input-b'):
         if len(sources[name]) != 12:
             errors.append(f'{name}: expected 12 stimulus notifications, got {len(sources[name])}')
     expected_a = 7 if case in ('cycle', 'cycle-three', 'cycle-branch') else 8 if case in ('cycle-live', 'hide', 'mute', 'registry-busy') else 24 if case in ('offset', 'sync-offset') else 12
     expected_b = expected_a if case in ('chain', 'parallel', 'cycle', 'cycle-live', 'cycle-three', 'cycle-branch') else 0
-    for name, count in [('route-a', expected_a), ('route-b', expected_b)]:
+    expected_c = 7 if case == 'cycle-three' else 0
+    if case.startswith('monitor-'):
+        expected_a = 12 if case in ('monitor-only', 'monitor-own') else 4
+        expected_b = 0 if case == 'monitor-own' else expected_a
+        expected_c = 4 if case == 'monitor-three' else 0
+        for name in ('route-a', 'route-b', 'route-c'):
+            if any(abs(event['value'] - 0.2) > 1e-5 for event in sources[name]):
+                errors.append(f'{name}: monitor source amplitude mismatch')
+    for name, count in [('route-a', expected_a), ('route-b', expected_b), ('route-c', expected_c)]:
         if len(sources[name]) != count:
             errors.append(f'{name}: expected {count} notification pulses, got {len(sources[name])}')
     measured = {}
-    for target in ('route-a', 'route-b'):
+    for target in ('route-a', 'route-b', 'route-c'):
         for event in sources[target]:
             candidates = sources['input-a']
             if not candidates:

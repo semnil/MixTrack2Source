@@ -1077,7 +1077,8 @@ static bool mt2s_audio_cycle(mt2s_context_t *context, size_t track)
 		return true;
 	for (struct mt2s_instance *instance = mt2s_instances; instance; instance = instance->next) {
 		mt2s_context_t *peer = instance->context;
-		if (!obs_source_active(peer->source) || obs_source_removed(peer->source))
+		if (!obs_source_active(peer->source) || obs_source_removed(peer->source) ||
+		    obs_source_get_monitoring_type(peer->source) == OBS_MONITORING_TYPE_MONITOR_ONLY)
 			continue;
 		size_t input = atomic_load(&peer->mix_idx);
 		if (input < MAX_AUDIO_MIXES)
@@ -1088,7 +1089,10 @@ static bool mt2s_audio_cycle(mt2s_context_t *context, size_t track)
 		for (size_t from = 0; from < MAX_AUDIO_MIXES; from++)
 			if (reach[from] & ((uint32_t)1 << via))
 				reach[from] |= reach[via];
-	uint32_t outputs = (uint32_t)atomic_load(&context->own_mixers);
+	// Monitor-only audio reaches capture callbacks, but OBS does not send it to any mix track.
+	uint32_t outputs = obs_source_get_monitoring_type(context->source) == OBS_MONITORING_TYPE_MONITOR_ONLY
+				   ? 0
+				   : (uint32_t)atomic_load(&context->own_mixers);
 	for (size_t out = 0; out < MAX_AUDIO_MIXES; out++)
 		if ((outputs & ((uint32_t)1 << out)) && (reach[out] & ((uint32_t)1 << track)))
 			return true;

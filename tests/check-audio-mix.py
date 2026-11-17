@@ -43,6 +43,14 @@ def check(directory, case, rate):
     elif case in ("cycle", "cycle-three", "cycle-branch"):
         expected[1:] = [[0.2] * 7] * 2
         pairs.append((0, 2) if case == "cycle-branch" else (1, 2))
+    elif case == "monitor-own":
+        expected[1] = []
+        pairs = []  # Its output exists only at the source notification callback.
+    elif case in ("monitor-live", "monitor-three", "monitor-branch"):
+        expected[1] = [0.2] * 4
+        if case != "monitor-live":
+            expected[2] = [0.2] * 4
+            pairs.append((0, 2) if case == "monitor-branch" else (1, 2))
     elif case == "cycle-live":
         expected[1:] = [[0.2] * 8] * 2
         pairs.append((1, 2))
@@ -119,6 +127,8 @@ def check(directory, case, rate):
         selection = None
         if case in ("cycle", "cycle-three", "cycle-branch") and a == 0:
             selection = list(range(5, 12))
+        elif case in ("monitor-live", "monitor-three", "monitor-branch") and a == 0:
+            selection = list(range(5, 9))
         elif case in ("cycle-live", "registry-busy") and a == 0:
             selection = list(range(5)) + list(range(9, 12))
         if selection is not None and len(left) == 12:

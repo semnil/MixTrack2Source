@@ -399,6 +399,9 @@ int main(int argc, char **argv)
 	power_fade = !strcmp(scenario, "fade-power");
 	bool hybrid_switch = !strcmp(scenario, "hybrid-switch") || !strcmp(scenario, "hybrid-edge");
 	bool hybrid_edge = !strcmp(scenario, "hybrid-edge");
+	bool monitor = !strncmp(scenario, "monitor-", 8);
+	bool monitor_own = !strcmp(scenario, "monitor-own");
+	bool monitor_switch = monitor && strcmp(scenario, "monitor-only") && !monitor_own;
 	uint32_t rate = (uint32_t)atoi(argv[2]);
 	const char *deps = argv[3];
 	assert(rate == 44100 || rate == 48000 || rate == 96000);
@@ -410,7 +413,16 @@ int main(int argc, char **argv)
 	snprintf(graphics, sizeof(graphics), "%s/Frameworks/libobs-opengl.dylib", deps);
 	obs_add_data_path(resources);
 	struct obs_audio_info ai = {.samples_per_sec = rate, .speakers = SPEAKERS_STEREO};
-	assert(obs_reset_audio(&ai));
+	if (!strcmp(scenario, "late-source")) {
+		// Keep the 20 ms producer delay inside a declared, stable buffering budget.
+		struct obs_audio_info2 buffered = {.samples_per_sec = rate,
+						   .speakers = SPEAKERS_STEREO,
+						   .max_buffering_ms = 64,
+						   .fixed_buffering = true};
+		assert(obs_reset_audio2(&buffered));
+	} else {
+		assert(obs_reset_audio(&ai));
+	}
 	struct obs_video_info vi = {.graphics_module = graphics,
 				    .fps_num = 30,
 				    .fps_den = 1,
@@ -458,20 +470,28 @@ int main(int argc, char **argv)
 					      .enum_active_sources = opaque_enum,
 					      .audio_render = opaque_audio};
 	obs_register_source(&opaque_info);
+	// An unavailable device prevents the monitoring backend from starting playback.
+	if (monitor)
+		assert(obs_set_audio_monitoring_device("Regression unavailable sink", "mt2s-regression-no-device"));
 	obs_module_load();
 	obs_source_t *a = obs_source_create("regression-input", "input-a", NULL, NULL);
 	obs_source_t *b = obs_source_create("regression-input", "input-b", NULL, NULL);
 	obs_source_set_audio_mixers(a, 1);
 	obs_source_set_audio_mixers(b, !strcmp(scenario, "input-switch") ? 2 : 1);
 	obs_scene_t *scene = obs_scene_create("scene-a"), *other = obs_scene_create("scene-b");
-	bool cycle_three = !strcmp(scenario, "cycle-three");
-	bool cycle_branch = !strcmp(scenario, "cycle-branch");
+	bool cycle_three = !strcmp(scenario, "cycle-three") || !strcmp(scenario, "monitor-three");
+	bool cycle_branch = !strcmp(scenario, "cycle-branch") || !strcmp(scenario, "monitor-branch");
 	obs_source_t *first = route("route-a", 0, cycle_branch ? 6 : 2), *second = NULL, *third = NULL;
 	if (!strcmp(scenario, "chain") || !strcmp(scenario, "cycle") || !strcmp(scenario, "cycle-live") ||
-	    cycle_three || cycle_branch)
-		second = route("route-b", 1, (!strcmp(scenario, "cycle") || cycle_branch) ? 1 : 4);
+	    cycle_three || cycle_branch || monitor)
+		second = route("route-b", 1,
+			       (!strcmp(scenario, "cycle") || cycle_branch || (monitor && !cycle_three)) ? 1 : 4);
 	if (cycle_three)
 		third = route("route-c", 2, 1);
+	obs_source_t *monitored = monitor_own ? first : cycle_three ? third : second;
+	if (monitor)
+		obs_source_set_monitoring_type(monitored, monitor_switch ? OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT
+									 : OBS_MONITORING_TYPE_MONITOR_ONLY);
 	if (!strcmp(scenario, "parallel"))
 		second = route("route-b", 0, 4);
 	if (!strcmp(scenario, "input-switch"))
@@ -548,6 +568,8 @@ int main(int argc, char **argv)
 	obs_source_add_audio_capture_callback(first, arrival_notification, "route-a");
 	if (second)
 		obs_source_add_audio_capture_callback(second, arrival_notification, "route-b");
+	if (third)
+		obs_source_add_audio_capture_callback(third, arrival_notification, "route-c");
 	uint64_t start = os_gettime_ns();
 	pthread_t late_thread;
 	struct late_feeder late = {.source = b,
@@ -574,6 +596,14 @@ int main(int argc, char **argv)
 			obs_sceneitem_set_visible(opaque_item, custom);
 			printf("PATH_SWITCH native=%d block=%u wall_ns=%" PRIu64 "\n", custom, block, os_gettime_ns());
 		}
+		if (monitor_switch && (block == 220 || block == 320)) {
+			obs_source_set_monitoring_type(monitored, block == 220
+									  ? OBS_MONITORING_TYPE_MONITOR_ONLY
+									  : OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
+			assert(obs_source_get_monitoring_type(monitored) ==
+			       (block == 220 ? OBS_MONITORING_TYPE_MONITOR_ONLY
+					     : OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT));
+		}
 		if (block == 220) {
 			if (!strcmp(scenario, "registry-busy")) {
 				assert(pthread_mutex_lock(&mt2s_instances_lock) == 0);
@@ -592,9 +622,9 @@ int main(int argc, char **argv)
 				set_track(first, 1);
 			if (!strcmp(scenario, "cycle"))
 				obs_source_set_audio_mixers(second, 4);
-			if (cycle_three)
+			if (cycle_three && !monitor)
 				obs_source_set_audio_mixers(third, 8);
-			if (cycle_branch)
+			if (cycle_branch && !monitor)
 				obs_source_set_audio_mixers(second, 8);
 			if (!strcmp(scenario, "cycle-live"))
 				obs_source_set_audio_mixers(second, 1);
@@ -626,6 +656,8 @@ int main(int argc, char **argv)
 	obs_source_remove_audio_capture_callback(first, arrival_notification, "route-a");
 	if (second)
 		obs_source_remove_audio_capture_callback(second, arrival_notification, "route-b");
+	if (third)
+		obs_source_remove_audio_capture_callback(third, arrival_notification, "route-c");
 	for (size_t track = 0; track < 3; track++) {
 		audio_output_disconnect(obs_get_audio(), track, capture, NULL);
 		char filename[4096];
