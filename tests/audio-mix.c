@@ -193,8 +193,12 @@ static bool update_during_enumeration(void *param, obs_source_t *source)
 	while (!atomic_load(&audio_enumeration_entered) && os_gettime_ns() < deadline)
 		os_sleep_ms(1);
 	// The enumeration owns OBS's source-list lock while input switching waits for audio callbacks.
+	uint32_t outputs = obs_source_get_audio_mixers(source);
 	set_track(source, 1);
 	set_track(source, 0);
+	// Selecting track 2 as the input removes that output; explicitly select it again.
+	obs_source_set_audio_mixers(source, outputs);
+	assert(obs_source_get_audio_mixers(source) == outputs);
 	atomic_store(&enumeration_requested, false);
 	puts("ENUMERATION UPDATE PASS");
 	return false;
