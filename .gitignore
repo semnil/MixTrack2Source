@@ -9,6 +9,7 @@
 !/docs
 !/img
 !/src
+!/tests
 !.clang-format
 !.gersemirc
 !.gitignore
@@ -24,6 +25,9 @@
 
 # Exclude macOS legacy resource forks
 .DS_Store
+
+# Exclude Python test bytecode
+/tests/__pycache__/
 
 # Exclude CMake build number cache
 /cmake/.CMakeBuildNumber

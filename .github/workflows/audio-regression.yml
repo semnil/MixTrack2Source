@@ -1,0 +1,40 @@
+name: Audio regression
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/audio-regression.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/audio-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audio-regression:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare isolated libobs dependencies
+        timeout-minutes: 10
+        run: bash tests/prepare-audio-deps.sh "$RUNNER_TEMP/audio-deps"
+      - name: Check audio routing, feedback prevention, and per-stage delay
+        timeout-minutes: 7
+        run: python3 tests/run-audio-mix.py --deps "$RUNNER_TEMP/audio-deps" --results "$RUNNER_TEMP/audio-results" --sanitize --check-mutex --buffer-ms 128
+      - name: Preserve audio measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: audio-regression-results
+          path: ${{ runner.temp }}/audio-results
+          retention-days: 7
