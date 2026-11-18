@@ -393,7 +393,7 @@ static void check_controls(obs_source_t *input, obs_source_t *router, obs_scene_
 }
 int main(int argc, char **argv)
 {
-	assert(argc == 5);
+	assert(argc == 6);
 	const char *scenario = argv[1];
 	opaque_changing = !strcmp(scenario, "opaque-changing");
 	power_fade = !strcmp(scenario, "fade-power");
@@ -404,6 +404,10 @@ int main(int argc, char **argv)
 	bool monitor_switch = monitor && strcmp(scenario, "monitor-only") && !monitor_own;
 	uint32_t rate = (uint32_t)atoi(argv[2]);
 	const char *deps = argv[3];
+	uint32_t buffer_ms = (uint32_t)atoi(argv[5]);
+	assert(buffer_ms == 0 || buffer_ms == 64);
+	if (!strcmp(scenario, "late-source"))
+		buffer_ms = 64;
 	assert(rate == 44100 || rate == 48000 || rate == 96000);
 	setvbuf(stdout, NULL, _IOLBF, 0);
 	assert(obs_startup("en-US", "work/config", NULL));
@@ -413,11 +417,11 @@ int main(int argc, char **argv)
 	snprintf(graphics, sizeof(graphics), "%s/Frameworks/libobs-opengl.dylib", deps);
 	obs_add_data_path(resources);
 	struct obs_audio_info ai = {.samples_per_sec = rate, .speakers = SPEAKERS_STEREO};
-	if (!strcmp(scenario, "late-source")) {
-		// Keep the 20 ms producer delay inside a declared, stable buffering budget.
+	if (buffer_ms) {
+		// Use a declared buffer budget without relaxing waveform or timestamp checks.
 		struct obs_audio_info2 buffered = {.samples_per_sec = rate,
 						   .speakers = SPEAKERS_STEREO,
-						   .max_buffering_ms = 64,
+						   .max_buffering_ms = buffer_ms,
 						   .fixed_buffering = true};
 		assert(obs_reset_audio2(&buffered));
 	} else {
@@ -435,7 +439,7 @@ int main(int argc, char **argv)
 				    .range = VIDEO_RANGE_FULL,
 				    .scale_type = OBS_SCALE_BILINEAR};
 	assert(obs_reset_video(&vi) == OBS_VIDEO_SUCCESS);
-	printf("RUN %s rate=%u libobs=%s\n", scenario, rate, obs_get_version_string());
+	printf("RUN %s rate=%u libobs=%s buffer_ms=%u\n", scenario, rate, obs_get_version_string(), buffer_ms);
 	struct obs_source_info input_info = {.id = "regression-input",
 					     .type = OBS_SOURCE_TYPE_INPUT,
 					     .output_flags = OBS_SOURCE_AUDIO,

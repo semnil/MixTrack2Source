@@ -30,7 +30,10 @@ switches back to monitoring with output, three-instance routes, and branched rou
 An unavailable monitor device prevents speaker playback; physical monitoring is not tested.
 The `late-source` case delays one producer by 20 ms and uses 64 ms of fixed OBS
 buffering so its input timestamps can be checked strictly. Other cases use the
-default dynamic buffering. This is a test configuration, not a plugin setting.
+default dynamic buffering. `--buffer-ms 64` selects the same fixed buffer for all
+cases; CI uses this explicit configuration. Pulse counts, amplitudes, input
+timestamps, and per-stage delay keep the same acceptance limits in both modes.
+These are test configurations, not plugin settings.
 
 Notification arrival differences are reported separately. They have no upper
 acceptance limit in the routing regression test. To evaluate the unfulfilled

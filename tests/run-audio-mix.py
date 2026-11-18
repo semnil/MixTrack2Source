@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--source", type=Path, default=ROOT / "src/plugin-main.c")
     parser.add_argument("--rate", type=int, choices=(44100, 48000, 96000), default=48000)
+    parser.add_argument("--buffer-ms", type=int, choices=(0, 64), default=0,
+                        help="Fixed OBS buffering for every case; 0 uses dynamic buffering except late-source")
     parser.add_argument("--cases", nargs="+", choices=CASES, default=CASES)
     parser.add_argument("--check-mutex", action="store_true", help="Check plugin mutex ownership with error-checking mutexes")
     parser.add_argument("--sanitize", action="store_true", help="Enable UndefinedBehaviorSanitizer")
@@ -59,6 +61,7 @@ def main():
         source_files = [args.source.resolve(), Path(__file__).resolve(), ROOT / "tests/audio-mix.c",
                         ROOT / "tests/check-audio-mix.py", ROOT / "tests/check-notification.py"]
         manifest = {"rate": args.rate, "cases": args.cases, "ubsan": args.sanitize, "check_mutex": args.check_mutex,
+                    "buffer_ms_by_case": {case: 64 if case == "late-source" else args.buffer_ms for case in args.cases},
                     "source_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}}
         (results / "run-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         subprocess.run(command, check=True, timeout=60, env=env)
@@ -68,7 +71,7 @@ def main():
             with log.open("w") as output:
                 try:
                     run = subprocess.run(
-                        [str(executable), case, str(args.rate), str(deps), str(results)],
+                        [str(executable), case, str(args.rate), str(deps), str(results), str(args.buffer_ms)],
                         cwd=scratch, env=env, stdout=output, stderr=subprocess.STDOUT,
                         timeout=60 if case == "controls" else 15,
                     )
