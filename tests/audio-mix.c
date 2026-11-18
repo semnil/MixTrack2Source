@@ -140,11 +140,21 @@ static float recorded[3][500000];
 static size_t counts[3];
 static uint64_t timestamps[3][500];
 static size_t blocks[3];
+static atomic_uint_fast64_t max_input_delivery[2];
 static void arrival_notification(void *param, obs_source_t *source, const struct audio_data *audio, bool muted)
 {
 	(void)source;
 	(void)muted;
 	uint64_t now = os_gettime_ns();
+	const char *name = param;
+	if (!strcmp(name, "input-a") || !strcmp(name, "input-b")) {
+		size_t index = !strcmp(name, "input-b");
+		uint_fast64_t delay = now > audio->timestamp ? now - audio->timestamp : 0;
+		uint_fast64_t previous = atomic_load(&max_input_delivery[index]);
+		while (delay > previous &&
+		       !atomic_compare_exchange_weak(&max_input_delivery[index], &previous, delay)) {
+		}
+	}
 	for (size_t frame = 0; frame < audio->frames; frame++) {
 		float value = ((const float *)audio->data[0])[frame];
 		if (fabsf(value) > 0.001f)
@@ -405,8 +415,8 @@ int main(int argc, char **argv)
 	uint32_t rate = (uint32_t)atoi(argv[2]);
 	const char *deps = argv[3];
 	uint32_t buffer_ms = (uint32_t)atoi(argv[5]);
-	assert(buffer_ms == 0 || buffer_ms == 64);
-	if (!strcmp(scenario, "late-source"))
+	assert(buffer_ms == 0 || buffer_ms == 64 || buffer_ms == 128);
+	if (!buffer_ms && !strcmp(scenario, "late-source"))
 		buffer_ms = 64;
 	assert(rate == 44100 || rate == 48000 || rate == 96000);
 	setvbuf(stdout, NULL, _IOLBF, 0);
@@ -657,6 +667,8 @@ int main(int argc, char **argv)
 	os_sleep_ms(200);
 	obs_source_remove_audio_capture_callback(a, arrival_notification, "input-a");
 	obs_source_remove_audio_capture_callback(b, arrival_notification, "input-b");
+	printf("INPUT_DELIVERY_MAX source=input-a delay_ns=%" PRIuFAST64 "\n", atomic_load(&max_input_delivery[0]));
+	printf("INPUT_DELIVERY_MAX source=input-b delay_ns=%" PRIuFAST64 "\n", atomic_load(&max_input_delivery[1]));
 	obs_source_remove_audio_capture_callback(first, arrival_notification, "route-a");
 	if (second)
 		obs_source_remove_audio_capture_callback(second, arrival_notification, "route-b");
