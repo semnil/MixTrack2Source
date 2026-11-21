@@ -28,6 +28,11 @@ case changes the input track while OBS holds its source-list lock.
 Monitor-only cases check source capture callbacks and final track output, including
 switches back to monitoring with output, three-instance routes, and branched routes.
 An unavailable monitor device prevents speaker playback; physical monitoring is not tested.
+Cases that change routing, visibility, muting, monitoring, the transition, or the registry
+lock between pulses first wait until every captured track has mixed the audio up to 100 ms
+before the scheduled change. The inputs then resume at least 100 ms later. The change precedes
+the resumed inputs, except in `hybrid-edge`, where it coincides with the first resumed pulse.
+A delayed audio or main thread therefore cannot move a pulse to the other side of a change.
 The `late-source` case delays one producer by 20 ms and uses 64 ms of fixed OBS
 buffering so its input timestamps can be checked strictly. Other cases use the
 default dynamic buffering. `--buffer-ms 64` and `--buffer-ms 128` select a fixed
