@@ -38,7 +38,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <stdatomic.h>
 #else
 // MSVC does not support stdatomic.h in C mode under the OBS build config
-// Use the `volatile` keyword to prevent the compiler from reordering instructions
+// (cmake/common/compiler_common.cmake sets CMAKE_C_STANDARD 17 as REQUIRED for every
+// target, and a target-level C_STANDARD 11 does not take effect)
+// Use the `volatile` keyword to prevent the compiler from reordering instructions;
+// an aligned size_t load or store is a single access on x64, so it is not torn
 typedef volatile size_t atomic_size_t;
 static inline void _mt2s_atomic_init(volatile size_t *p, size_t v)
 {
