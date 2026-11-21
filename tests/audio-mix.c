@@ -179,15 +179,13 @@ static void capture(void *param, size_t track, struct audio_data *audio)
 	counts[track] += audio->frames;
 	atomic_store(&mixed[track], audio->timestamp);
 }
-// Return once every captured track has delivered a block that starts at or after timestamp.
-static void wait_for_mix(uint64_t timestamp)
+// Report whether every captured track has delivered a block that starts at or after timestamp.
+static bool mixed_from(uint64_t timestamp)
 {
-	uint64_t deadline = os_gettime_ns() + 1000000000;
 	for (size_t track = 0; track < 3; track++)
-		while (atomic_load(&mixed[track]) < timestamp) {
-			assert(os_gettime_ns() < deadline);
-			os_sleep_ms(1);
-		}
+		if (atomic_load(&mixed[track]) < timestamp)
+			return false;
+	return true;
 }
 static obs_source_t *route(const char *name, int input, uint32_t outputs)
 {
@@ -237,6 +235,15 @@ static void feed(obs_source_t *source, uint32_t rate, uint64_t timestamp, float 
 	audio.data[0] = (uint8_t *)samples[0];
 	audio.data[1] = (uint8_t *)samples[1];
 	obs_source_output_audio(source, &audio);
+}
+// Feed a silent block to both inputs and move the rest of the scenario 10 ms later.
+static void hold(obs_source_t *a, obs_source_t *b, uint32_t rate, uint64_t *start, uint64_t *ts)
+{
+	feed(a, rate, *ts, 0.0f);
+	feed(b, rate, *ts, 0.0f);
+	*start += 10000000;
+	*ts += 10000000;
+	os_sleepto_ns_fast(*ts);
 }
 struct late_feeder {
 	bool intermittent;
@@ -606,10 +613,10 @@ int main(int argc, char **argv)
 	if (late_source)
 		assert(pthread_create(&late_thread, NULL, feed_late_source, &late) == 0);
 	bool registry_locked = false;
-	// A change first waits until every captured track has mixed the audio up to 100 ms before the
-	// change block. The inputs resume at least 100 ms later; libobs keeps timestamps that jump by
-	// more than 70 ms. A hybrid-edge change coincides with the first resumed pulse; other changes
-	// precede the resumed inputs. Only these scenarios make changes.
+	// Before a change, silent input blocks hold the scenario until every captured track has mixed
+	// the audio up to 100 ms before the change block. After the change, silent blocks continue for
+	// 100 ms, except in hybrid-edge, whose change coincides with its block's pulse. The input
+	// timestamps stay continuous. Only these scenarios make changes.
 	unsigned change_blocks[2] = {hybrid_edge ? 225u : 220u, hybrid_edge ? 325u : 320u};
 	bool second_change = hybrid_switch || monitor_switch || !strcmp(scenario, "registry-busy") ||
 			     !strcmp(scenario, "cycle-live") || !strcmp(scenario, "hide") || !strcmp(scenario, "mute");
@@ -621,12 +628,15 @@ int main(int argc, char **argv)
 	for (unsigned block = 0; block < 450; block++) {
 		bool change = (block == change_blocks[0] && first_change) ||
 			      (block == change_blocks[1] && second_change);
-		if (change)
-			wait_for_mix(start + (uint64_t)(block - 10) * 10000000);
-		if (change && hybrid_edge)
-			start = os_gettime_ns() + 100000000 - (uint64_t)block * 10000000;
 		uint64_t ts = start + (uint64_t)block * 10000000;
 		os_sleepto_ns_fast(ts);
+		if (change) {
+			uint64_t before = ts - 100000000, deadline = os_gettime_ns() + 1000000000;
+			while (!mixed_from(before)) {
+				assert(os_gettime_ns() < deadline);
+				hold(a, b, rate, &start, &ts);
+			}
+		}
 		if (!registry_locked)
 			drain_ui();
 		if (block == 50 && !strcmp(scenario, "enumeration-update")) {
@@ -687,12 +697,9 @@ int main(int argc, char **argv)
 		}
 		if (change) {
 			uint64_t changed = os_gettime_ns();
-			if (!hybrid_edge) {
-				ts = changed + 100000000;
-				start = ts - (uint64_t)block * 10000000;
-			}
+			while (!hybrid_edge && ts < changed + 100000000)
+				hold(a, b, rate, &start, &ts);
 			printf("CHANGE block=%u wall_ns=%" PRIu64 " input_ns=%" PRIu64 "\n", block, changed, ts);
-			os_sleepto_ns_fast(ts);
 		}
 		float pulse = block >= 100 && block < 400 && block % 25 == 0 ? 1.0f : 0.0f;
 		feed(a, rate, ts, 0.2f * pulse);
