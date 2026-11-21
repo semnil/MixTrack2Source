@@ -36,8 +36,8 @@ timestamps stay continuous, and a delayed audio or main thread cannot move a pul
 other side of a change.
 The `late-source` case delays one producer by 20 ms and uses 64 ms of fixed OBS
 buffering so its input timestamps can be checked strictly. Other cases use the
-default dynamic buffering. `--buffer-ms 64` and `--buffer-ms 128` select a fixed
-buffer for all cases; CI uses 128 ms. Maximum input delivery delay, including
+default dynamic buffering. `--buffer-ms 64`, `--buffer-ms 128`, and `--buffer-ms 256`
+select a fixed buffer for all cases; CI uses 256 ms. Maximum input delivery delay, including
 silent packets, is recorded per source. Pulse counts, amplitudes, input timestamps,
 and per-stage delay keep the same acceptance limits in every configuration.
 These are test configurations, not plugin settings.

@@ -33,7 +33,7 @@ python3 tests/run-audio-mix.py --deps work/audio-deps --results work/audio-resul
 パルスが変更の反対側へ移らない。
 `late-source` は片方の入力を 20 ms 遅らせ、OBS のバッファを 64 ms に固定して、
 入力時刻を厳密に照合する。他の条件では既定の動的バッファを使う。
-`--buffer-ms 64` または `--buffer-ms 128` で全条件のバッファを固定できる。CI は 128 ms を使う。
+`--buffer-ms 64`、`--buffer-ms 128`、`--buffer-ms 256` のどれかで全条件のバッファを固定できる。CI は 256 ms を使う。
 無音の入力を含め、ソースごとの最大到着遅延を記録する。どの設定でも、
 個数・音量・入力時刻・段ごとの遅延の合格基準は同じにする。
 これらはテスト用の設定であり、プラグインの設定は変えない。

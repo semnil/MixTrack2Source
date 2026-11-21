@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--source", type=Path, default=ROOT / "src/plugin-main.c")
     parser.add_argument("--rate", type=int, choices=(44100, 48000, 96000), default=48000)
-    parser.add_argument("--buffer-ms", type=int, choices=(0, 64, 128), default=0,
+    parser.add_argument("--buffer-ms", type=int, choices=(0, 64, 128, 256), default=0,
                         help="Fixed OBS buffering for every case; 0 uses dynamic buffering except late-source")
     parser.add_argument("--cases", nargs="+", choices=CASES, default=CASES)
     parser.add_argument("--check-mutex", action="store_true", help="Check plugin mutex ownership with error-checking mutexes")

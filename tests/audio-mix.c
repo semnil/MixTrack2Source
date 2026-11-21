@@ -434,7 +434,7 @@ int main(int argc, char **argv)
 	uint32_t rate = (uint32_t)atoi(argv[2]);
 	const char *deps = argv[3];
 	uint32_t buffer_ms = (uint32_t)atoi(argv[5]);
-	assert(buffer_ms == 0 || buffer_ms == 64 || buffer_ms == 128);
+	assert(buffer_ms == 0 || buffer_ms == 64 || buffer_ms == 128 || buffer_ms == 256);
 	if (!buffer_ms && !strcmp(scenario, "late-source"))
 		buffer_ms = 64;
 	assert(rate == 44100 || rate == 48000 || rate == 96000);
