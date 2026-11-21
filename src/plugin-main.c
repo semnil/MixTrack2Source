@@ -38,7 +38,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <stdatomic.h>
 #else
 // MSVC does not support stdatomic.h in C mode under the OBS build config
-// Use the `volatile` keyword to prevent the compiler from reordering instructions
+// (its C11 / C17 stdatomic.h needs /experimental:c11atomics, which the build does not pass)
+// With MSVC's default /volatile:ms on x64, each volatile load is an acquire and each
+// volatile store a release, and an aligned size_t is read and written in one access.
+// That holds per access: two fields read one after the other are not one snapshot
 typedef volatile size_t atomic_size_t;
 static inline void _mt2s_atomic_init(volatile size_t *p, size_t v)
 {
