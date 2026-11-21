@@ -136,9 +136,9 @@ static struct obs_audio_data *filter_half(void *data, struct obs_audio_data *aud
 			((float *)audio->data[ch])[frame] *= 0.5f;
 	return audio;
 }
-static float recorded[3][500000];
+static float recorded[3][1000 * AUDIO_OUTPUT_FRAMES];
 static size_t counts[3];
-static uint64_t timestamps[3][500];
+static uint64_t timestamps[3][1000];
 static size_t blocks[3];
 static atomic_uint_fast64_t mixed[3];
 static atomic_uint_fast64_t max_input_delivery[2];
@@ -171,7 +171,7 @@ static void capture(void *param, size_t track, struct audio_data *audio)
 		if (fabsf(((float *)audio->data[0])[i]) > 0.001f)
 			printf("OUTPUT track=%zu timestamp=%" PRIu64 " frame=%zu wall_ns=%" PRIu64 " value=%.9g\n",
 			       track, audio->timestamp, i, now, ((float *)audio->data[0])[i]);
-	assert(track < 3 && counts[track] + audio->frames <= 500000 && blocks[track] < 500);
+	assert(track < 3 && counts[track] + audio->frames <= 1000 * AUDIO_OUTPUT_FRAMES && blocks[track] < 1000);
 	assert(audio->frames == AUDIO_OUTPUT_FRAMES);
 	assert(memcmp(audio->data[0], audio->data[1], audio->frames * sizeof(float)) == 0);
 	timestamps[track][blocks[track]++] = audio->timestamp;
