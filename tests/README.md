@@ -30,10 +30,10 @@ switches back to monitoring with output, three-instance routes, and branched rou
 An unavailable monitor device prevents speaker playback; physical monitoring is not tested.
 Cases that change routing, visibility, muting, monitoring, the transition, or the registry
 lock between pulses feed silent input blocks until every captured track has mixed the audio
-up to 100 ms before the scheduled change. After the change, silent blocks continue for 100 ms,
-except in `hybrid-edge`, where the change coincides with that block's pulse. The input
-timestamps stay continuous, and a delayed audio or main thread cannot move a pulse to the
-other side of a change.
+up to 100 ms before the scheduled change. After the change, silent blocks continue until the
+input timestamps reach the time of the change, so the next pulse follows the change by at least
+50 ms. In `hybrid-edge`, the change coincides with that block's pulse. The input timestamps stay
+continuous, and a delayed audio or main thread cannot move a pulse to the other side of a change.
 The `late-source` case delays one producer by 20 ms and uses 64 ms of fixed OBS
 buffering so its input timestamps can be checked strictly. Other cases use the
 default dynamic buffering. `--buffer-ms 64`, `--buffer-ms 128`, and `--buffer-ms 256`

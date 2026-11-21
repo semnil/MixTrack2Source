@@ -614,9 +614,10 @@ int main(int argc, char **argv)
 		assert(pthread_create(&late_thread, NULL, feed_late_source, &late) == 0);
 	bool registry_locked = false;
 	// Before a change, silent input blocks hold the scenario until every captured track has mixed
-	// the audio up to 100 ms before the change block. After the change, silent blocks continue for
-	// 100 ms, except in hybrid-edge, whose change coincides with its block's pulse. The input
-	// timestamps stay continuous. Only these scenarios make changes.
+	// the audio up to 100 ms before the change block. After the change, silent blocks continue until
+	// the input timestamps reach the change, so the next pulse follows it by at least 50 ms, except in
+	// hybrid-edge, whose change coincides with its block's pulse. The input timestamps stay
+	// continuous. Only these scenarios make changes.
 	unsigned change_blocks[2] = {hybrid_edge ? 225u : 220u, hybrid_edge ? 325u : 320u};
 	bool second_change = hybrid_switch || monitor_switch || !strcmp(scenario, "registry-busy") ||
 			     !strcmp(scenario, "cycle-live") || !strcmp(scenario, "hide") || !strcmp(scenario, "mute");
@@ -697,7 +698,7 @@ int main(int argc, char **argv)
 		}
 		if (change) {
 			uint64_t changed = os_gettime_ns();
-			while (!hybrid_edge && ts < changed + 100000000)
+			while (!hybrid_edge && ts < changed)
 				hold(a, b, rate, &start, &ts);
 			printf("CHANGE block=%u wall_ns=%" PRIu64 " input_ns=%" PRIu64 "\n", block, changed, ts);
 		}
