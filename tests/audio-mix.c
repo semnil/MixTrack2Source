@@ -136,10 +136,11 @@ static struct obs_audio_data *filter_half(void *data, struct obs_audio_data *aud
 			((float *)audio->data[ch])[frame] *= 0.5f;
 	return audio;
 }
-static float recorded[3][500000];
+static float recorded[3][1000 * AUDIO_OUTPUT_FRAMES];
 static size_t counts[3];
-static uint64_t timestamps[3][500];
+static uint64_t timestamps[3][1000];
 static size_t blocks[3];
+static atomic_uint_fast64_t mixed[3];
 static atomic_uint_fast64_t max_input_delivery[2];
 static void arrival_notification(void *param, obs_source_t *source, const struct audio_data *audio, bool muted)
 {
@@ -170,12 +171,21 @@ static void capture(void *param, size_t track, struct audio_data *audio)
 		if (fabsf(((float *)audio->data[0])[i]) > 0.001f)
 			printf("OUTPUT track=%zu timestamp=%" PRIu64 " frame=%zu wall_ns=%" PRIu64 " value=%.9g\n",
 			       track, audio->timestamp, i, now, ((float *)audio->data[0])[i]);
-	assert(track < 3 && counts[track] + audio->frames <= 500000 && blocks[track] < 500);
+	assert(track < 3 && counts[track] + audio->frames <= 1000 * AUDIO_OUTPUT_FRAMES && blocks[track] < 1000);
 	assert(audio->frames == AUDIO_OUTPUT_FRAMES);
 	assert(memcmp(audio->data[0], audio->data[1], audio->frames * sizeof(float)) == 0);
 	timestamps[track][blocks[track]++] = audio->timestamp;
 	memcpy(recorded[track] + counts[track], audio->data[0], audio->frames * sizeof(float));
 	counts[track] += audio->frames;
+	atomic_store(&mixed[track], audio->timestamp);
+}
+// Report whether every captured track has delivered a block that starts at or after timestamp.
+static bool mixed_from(uint64_t timestamp)
+{
+	for (size_t track = 0; track < 3; track++)
+		if (atomic_load(&mixed[track]) < timestamp)
+			return false;
+	return true;
 }
 static obs_source_t *route(const char *name, int input, uint32_t outputs)
 {
@@ -225,6 +235,15 @@ static void feed(obs_source_t *source, uint32_t rate, uint64_t timestamp, float 
 	audio.data[0] = (uint8_t *)samples[0];
 	audio.data[1] = (uint8_t *)samples[1];
 	obs_source_output_audio(source, &audio);
+}
+// Feed a silent block to both inputs and move the rest of the scenario 10 ms later.
+static void hold(obs_source_t *a, obs_source_t *b, uint32_t rate, uint64_t *start, uint64_t *ts)
+{
+	feed(a, rate, *ts, 0.0f);
+	feed(b, rate, *ts, 0.0f);
+	*start += 10000000;
+	*ts += 10000000;
+	os_sleepto_ns_fast(*ts);
 }
 struct late_feeder {
 	bool intermittent;
@@ -415,7 +434,7 @@ int main(int argc, char **argv)
 	uint32_t rate = (uint32_t)atoi(argv[2]);
 	const char *deps = argv[3];
 	uint32_t buffer_ms = (uint32_t)atoi(argv[5]);
-	assert(buffer_ms == 0 || buffer_ms == 64 || buffer_ms == 128);
+	assert(buffer_ms == 0 || buffer_ms == 64 || buffer_ms == 128 || buffer_ms == 256);
 	if (!buffer_ms && !strcmp(scenario, "late-source"))
 		buffer_ms = 64;
 	assert(rate == 44100 || rate == 48000 || rate == 96000);
@@ -594,9 +613,31 @@ int main(int argc, char **argv)
 	if (late_source)
 		assert(pthread_create(&late_thread, NULL, feed_late_source, &late) == 0);
 	bool registry_locked = false;
+	// Before a change, silent input blocks hold the scenario until every captured track has mixed
+	// the audio up to 100 ms before the change block. After the change, silent blocks continue until
+	// the input timestamps reach the change, so the next pulse follows it by at least 50 ms, except in
+	// hybrid-edge, whose change coincides with its block's pulse. The input timestamps stay
+	// continuous. Only these scenarios make changes.
+	unsigned change_blocks[2] = {hybrid_edge ? 225u : 220u, hybrid_edge ? 325u : 320u};
+	bool second_change = hybrid_switch || monitor_switch || !strcmp(scenario, "registry-busy") ||
+			     !strcmp(scenario, "cycle-live") || !strcmp(scenario, "hide") || !strcmp(scenario, "mute");
+	bool first_change = second_change || !strcmp(scenario, "fade") || power_fade || !strcmp(scenario, "switch") ||
+			    !strcmp(scenario, "input-switch") || !strcmp(scenario, "cycle") || cycle_three ||
+			    cycle_branch;
+	// The late feeder keeps its own start timestamp.
+	assert(!late_source || !first_change);
 	for (unsigned block = 0; block < 450; block++) {
+		bool change = (block == change_blocks[0] && first_change) ||
+			      (block == change_blocks[1] && second_change);
 		uint64_t ts = start + (uint64_t)block * 10000000;
 		os_sleepto_ns_fast(ts);
+		if (change) {
+			uint64_t before = ts - 100000000, deadline = os_gettime_ns() + 1000000000;
+			while (!mixed_from(before)) {
+				assert(os_gettime_ns() < deadline);
+				hold(a, b, rate, &start, &ts);
+			}
+		}
 		if (!registry_locked)
 			drain_ui();
 		if (block == 50 && !strcmp(scenario, "enumeration-update")) {
@@ -604,13 +645,13 @@ int main(int argc, char **argv)
 			ts = os_gettime_ns();
 			start = ts - (uint64_t)block * 10000000;
 		}
-		if (hybrid_switch && (block == (hybrid_edge ? 225u : 220u) || block == (hybrid_edge ? 325u : 320u))) {
-			bool custom = block == (hybrid_edge ? 225u : 220u);
+		if (change && hybrid_switch) {
+			bool custom = block == change_blocks[0];
 			obs_sceneitem_set_visible(item, !custom);
 			obs_sceneitem_set_visible(opaque_item, custom);
 			printf("PATH_SWITCH native=%d block=%u wall_ns=%" PRIu64 "\n", custom, block, os_gettime_ns());
 		}
-		if (monitor_switch && (block == 220 || block == 320)) {
+		if (change && monitor_switch) {
 			obs_source_set_monitoring_type(monitored, block == 220
 									  ? OBS_MONITORING_TYPE_MONITOR_ONLY
 									  : OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
@@ -618,7 +659,7 @@ int main(int argc, char **argv)
 			       (block == 220 ? OBS_MONITORING_TYPE_MONITOR_ONLY
 					     : OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT));
 		}
-		if (block == 220) {
+		if (change && block == 220) {
 			if (!strcmp(scenario, "registry-busy")) {
 				assert(pthread_mutex_lock(&mt2s_instances_lock) == 0);
 				registry_locked = true;
@@ -643,7 +684,7 @@ int main(int argc, char **argv)
 			if (!strcmp(scenario, "cycle-live"))
 				obs_source_set_audio_mixers(second, 1);
 		}
-		if (block == 320) {
+		if (change && block == 320) {
 			if (registry_locked) {
 				assert(pthread_mutex_unlock(&mt2s_instances_lock) == 0);
 				registry_locked = false;
@@ -654,6 +695,12 @@ int main(int argc, char **argv)
 				obs_sceneitem_set_visible(item, true);
 			if (!strcmp(scenario, "mute"))
 				obs_source_set_muted(a, false);
+		}
+		if (change) {
+			uint64_t changed = os_gettime_ns();
+			while (!hybrid_edge && ts < changed)
+				hold(a, b, rate, &start, &ts);
+			printf("CHANGE block=%u wall_ns=%" PRIu64 " input_ns=%" PRIu64 "\n", block, changed, ts);
 		}
 		float pulse = block >= 100 && block < 400 && block % 25 == 0 ? 1.0f : 0.0f;
 		feed(a, rate, ts, 0.2f * pulse);

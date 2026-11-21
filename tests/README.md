@@ -28,10 +28,16 @@ case changes the input track while OBS holds its source-list lock.
 Monitor-only cases check source capture callbacks and final track output, including
 switches back to monitoring with output, three-instance routes, and branched routes.
 An unavailable monitor device prevents speaker playback; physical monitoring is not tested.
+Cases that change routing, visibility, muting, monitoring, the transition, or the registry
+lock between pulses feed silent input blocks until every captured track has mixed the audio
+up to 100 ms before the scheduled change. After the change, silent blocks continue until the
+input timestamps reach the time of the change, so the next pulse follows the change by at least
+50 ms. In `hybrid-edge`, the change coincides with that block's pulse. The input timestamps stay
+continuous, and a delayed audio or main thread cannot move a pulse to the other side of a change.
 The `late-source` case delays one producer by 20 ms and uses 64 ms of fixed OBS
 buffering so its input timestamps can be checked strictly. Other cases use the
-default dynamic buffering. `--buffer-ms 64` and `--buffer-ms 128` select a fixed
-buffer for all cases; CI uses 128 ms. Maximum input delivery delay, including
+default dynamic buffering. `--buffer-ms 64`, `--buffer-ms 128`, and `--buffer-ms 256`
+select a fixed buffer for all cases; CI uses 256 ms. Maximum input delivery delay, including
 silent packets, is recorded per source. Pulse counts, amplitudes, input timestamps,
 and per-stage delay keep the same acceptance limits in every configuration.
 These are test configurations, not plugin settings.

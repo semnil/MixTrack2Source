@@ -30,7 +30,7 @@ jobs:
         run: bash tests/prepare-audio-deps.sh "$RUNNER_TEMP/audio-deps"
       - name: Check audio routing, feedback prevention, and per-stage delay
         timeout-minutes: 7
-        run: python3 tests/run-audio-mix.py --deps "$RUNNER_TEMP/audio-deps" --results "$RUNNER_TEMP/audio-results" --sanitize --check-mutex --buffer-ms 128
+        run: python3 tests/run-audio-mix.py --deps "$RUNNER_TEMP/audio-deps" --results "$RUNNER_TEMP/audio-results" --sanitize --check-mutex --buffer-ms 256
       - name: Preserve audio measurements
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
